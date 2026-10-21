@@ -1,0 +1,10 @@
+# configs/mock-sales.yaml: the mock Sales System API. Any key can be
+# overridden as MOCK_SALES_<KEY_PATH>, e.g. MOCK_SALES_FAULTS_STATUS=403.
+server:
+  addr: ":8081"
+public_base_url: http://localhost:8081   # used in document links, which the browser opens
+faults:                                  # startup defaults; change live with POST /admin/faults
+  latency_ms: 0
+  error_rate: 0
+  hang: false
+  status: 0

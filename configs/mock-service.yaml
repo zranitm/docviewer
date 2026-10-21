@@ -1,0 +1,10 @@
+# configs/mock-service.yaml: the mock Service System API. Any key can be
+# overridden as MOCK_SERVICE_<KEY_PATH>, e.g. MOCK_SERVICE_FAULTS_HANG=true.
+server:
+  addr: ":8082"
+public_base_url: http://localhost:8082   # used in document links, which the browser opens
+faults:                                  # startup defaults; change live with POST /admin/faults
+  latency_ms: 0
+  error_rate: 0
+  hang: false
+  status: 0

@@ -1,0 +1,45 @@
+{
+  "has_more": false,
+  "records": [
+    {
+      "record_id": 9003,
+      "category": "service_invoice",
+      "description": "Invoice for 10,000 km service",
+      "created_at": 1780300800,
+      "download_link": "http://localhost:8082/files/9003.pdf",
+      "work_notes": "Labour and parts, paid by card"
+    },
+    {
+      "record_id": 9001,
+      "category": "repair_order",
+      "description": "10,000 km service",
+      "created_at": 1780300800,
+      "download_link": "http://localhost:8082/files/9001.pdf",
+      "work_notes": "Oil and filter changed, brake pads replaced"
+    },
+    {
+      "record_id": 9002,
+      "category": "recall_notice",
+      "description": "Airbag inflator recall",
+      "created_at": 1762939800,
+      "download_link": "http://localhost:8082/files/9002.pdf",
+      "work_notes": "Driver airbag replaced under recall campaign"
+    },
+    {
+      "record_id": 9004,
+      "category": "inspection_report",
+      "description": "Annual inspection",
+      "created_at": 1747749600,
+      "download_link": "http://localhost:8082/files/9004.pdf",
+      "work_notes": "Passed; rear tyres near the wear limit"
+    },
+    {
+      "record_id": 9010,
+      "category": "pre_delivery_inspection",
+      "description": "PDI checklist, signed",
+      "created_at": 1709337600,
+      "download_link": "http://localhost:8082/files/9010.pdf",
+      "file_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+    }
+  ]
+}

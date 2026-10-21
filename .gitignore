@@ -1,0 +1,8 @@
+# local overrides, never committed
+.env
+configs/config.local.yaml
+
+# build and test output
+bin/
+coverage.out
+coverage.html

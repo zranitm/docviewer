@@ -1,0 +1,120 @@
+[
+  {
+    "vin": "1M8GDM9AXKP042788",
+    "documents": [
+      {
+        "docId": "S-1001",
+        "docType": "PURCHASE_AGREEMENT",
+        "title": "Purchase agreement",
+        "createdDate": "2024-03-02"
+      },
+      {
+        "docId": "S-1002",
+        "docType": "PRE_DELIVERY_INSPECTION",
+        "title": "PDI checklist, signed",
+        "createdDate": "2024-03-02",
+        "fileSha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+      },
+      {
+        "docId": "S-1003",
+        "docType": "FINANCE_CONTRACT",
+        "title": "36-month finance plan",
+        "createdDate": "2024-03-02"
+      },
+      {
+        "docId": "S-1004",
+        "docType": "SALES_INVOICE",
+        "title": "Sales invoice",
+        "createdDate": "2024-03-05",
+        "notes": "Paid in full",
+        "fileSha256": "3b7c1f0a9d2e4c6b8a0f1e2d3c4b5a69788796a5b4c3d2e1f0a9b8c7d6e5f4a3"
+      },
+      {
+        "docId": "S-1005",
+        "docType": "REGISTRATION",
+        "title": "Vehicle registration",
+        "createdDate": "2024-03-10"
+      }
+    ]
+  },
+  {
+    "vin": "WVWZZZ1JZXW000002",
+    "documents": [
+      {
+        "docId": "S-2001",
+        "docType": "PURCHASE_AGREEMENT",
+        "title": "Purchase agreement",
+        "createdDate": "2023-07-14"
+      },
+      {
+        "docId": "S-2002",
+        "docType": "SALES_INVOICE",
+        "title": "Sales invoice",
+        "createdDate": "2023-07-14",
+        "notes": "Trade-in applied"
+      },
+      {
+        "docId": "S-2003",
+        "docType": "REGISTRATION",
+        "title": "Vehicle registration",
+        "createdDate": "2023-07-20"
+      }
+    ]
+  },
+  {
+    "vin": "5YJ3E1EA7KF000004",
+    "documents": [
+      {
+        "docId": "S-4001",
+        "docType": "PURCHASE_AGREEMENT",
+        "title": "Purchase agreement",
+        "createdDate": "2021-01-05"
+      },
+      {
+        "docId": "S-4002",
+        "docType": "FINANCE_CONTRACT",
+        "title": "48-month finance plan",
+        "createdDate": "2021-01-05"
+      },
+      {
+        "docId": "S-4003",
+        "docType": "PRE_DELIVERY_INSPECTION",
+        "title": "PDI checklist, signed",
+        "createdDate": "2021-01-05",
+        "fileSha256": "c0ffee1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+      },
+      {
+        "docId": "S-4004",
+        "docType": "REGISTRATION",
+        "title": "Vehicle registration",
+        "createdDate": "2021-06-30"
+      },
+      {
+        "docId": "S-4005",
+        "docType": "SALES_INVOICE",
+        "title": "Accessories invoice",
+        "createdDate": "2022-02-14",
+        "notes": "Roof rack and mats"
+      },
+      {
+        "docId": "S-4006",
+        "docType": "WARRANTY_EXTENSION",
+        "title": "Extended warranty, 2 years",
+        "createdDate": "2023-10-01"
+      },
+      {
+        "docId": "S-4007",
+        "docType": "SALES_INVOICE",
+        "title": "Winter tyres invoice",
+        "createdDate": "2024-04-18",
+        "notes": "Four tyres, fitted"
+      },
+      {
+        "docId": "S-4008",
+        "docType": "REGISTRATION",
+        "title": "Registration renewal",
+        "createdDate": "2025-12-24"
+      }
+    ]
+  }
+]

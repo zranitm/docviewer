@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Unified Document Viewer</title>
+<!--
+  Demo UI for the docviewer API: one page, no build step, served by nginx on
+  :5173 in docker-compose. Out of scope for the design documents (see README).
+  Bases, each overridable as a query parameter: ?api= ?sales= ?service= ?grafana=
+-->
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="./"><span class="logo" aria-hidden="true">▣</span> Unified Document Viewer</a>
+    <div class="bar-right">
+      <span class="endpoint" title="API base">API <code id="api-base"></code></span>
+      <button id="theme" class="icon-btn" type="button" aria-label="Switch theme" title="Switch theme">◐</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero card">
+    <form id="search" class="search" autocomplete="off">
+      <label class="sr-only" for="vin">Vehicle identification number</label>
+      <div class="field">
+        <span class="field-icon" aria-hidden="true">⌕</span>
+        <input id="vin" type="text" inputmode="latin" maxlength="17" placeholder="Enter a 17-character VIN" spellcheck="false" required>
+        <kbd class="kbd" title="Press / to focus">/</kbd>
+      </div>
+      <label class="limit">Page size
+        <select id="limit">
+          <option>10</option><option selected>20</option><option>50</option><option>100</option>
+        </select>
+      </label>
+      <button type="submit" id="go" class="primary">Search</button>
+    </form>
+    <p id="vin-hint" class="hint" aria-live="polite"></p>
+    <div class="chips" id="fixtures" aria-label="Fixture vehicles"></div>
+  </section>
+
+  <div id="notice" class="notice-slot" aria-live="polite"></div>
+
+  <section id="status" class="status" hidden>
+    <div class="status-grid" id="sources"></div>
+    <div class="status-foot">
+      <span id="summary"></span>
+      <span id="trace" class="trace"></span>
+    </div>
+  </section>
+
+  <section id="filters" class="filters" hidden>
+    <div class="filter-group" id="source-filters"></div>
+    <div class="filter-group" id="type-filters"></div>
+    <label class="filter-text">
+      <span class="sr-only">Filter by text</span>
+      <input id="text-filter" type="search" placeholder="Filter titles and summaries">
+    </label>
+  </section>
+
+  <section id="results" class="results"></section>
+
+  <div class="more">
+    <button id="more" class="secondary" type="button" hidden>Load more</button>
+    <label id="auto-wrap" class="auto" hidden><input id="auto" type="checkbox"> Load more as I scroll</label>
+    <div id="sentinel" aria-hidden="true"></div>
+  </div>
+
+  <details class="panel" id="demo-panel">
+    <summary>Demo controls <span class="muted">· inject faults into the mock systems</span></summary>
+    <div class="panel-body">
+      <p class="muted">Each system is a mock with a live fault switch. A change applies to the next request, so set a fault and search again or load the next page. Timeouts show as a partial page; repeated failures open the circuit breaker, which recovers after the cooldown.</p>
+      <div id="mocks" class="mocks"></div>
+      <div class="panel-actions">
+        <button id="reset-faults" class="secondary" type="button">Reset both to normal</button>
+        <button id="rerun" class="secondary" type="button">Run the search again</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" id="log-panel">
+    <summary>Request log <span class="muted" id="log-count"></span></summary>
+    <div class="panel-body">
+      <div class="tablewrap"><table class="log" id="log"><thead><tr><th>Time</th><th>Request</th><th>Status</th><th>Took</th><th>Sources</th><th>Trace</th></tr></thead><tbody></tbody></table></div>
+      <div class="panel-actions"><button id="clear-log" class="secondary" type="button">Clear</button></div>
+    </div>
+  </details>
+</main>
+
+<footer class="wrap foot">
+  <span>Demo UI for the docviewer API. Grafana: <a id="grafana-link" href="#" target="_blank" rel="noopener">dashboard</a>.</span>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

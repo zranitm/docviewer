@@ -1,0 +1,65 @@
+# make up / make down. The service, both mocks, the Grafana stack and the
+# demo UI. Overrides for the service go in ../.env (git-ignored; see
+# ../.env.example).
+name: docviewer
+
+services:
+  docviewer:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        CMD: docviewer
+        VERSION: ${VERSION:-dev}
+    ports:
+      - "8080:8080"
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"  # ms; the 60 s default leaves rate() windows with one sample
+      DOCVIEWER_SERVER_CORS_ORIGINS: http://localhost:5173
+    env_file:
+      - path: ../.env
+        required: false
+    depends_on:
+      - mock-sales
+      - mock-service
+      - lgtm
+
+  mock-sales:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        CMD: mock-sales
+    ports:
+      - "8081:8081"
+
+  mock-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        CMD: mock-service
+    ports:
+      - "8082:8082"
+
+  lgtm:
+    image: grafana/otel-lgtm:0.11.0
+    ports:
+      - "3000:3000"   # Grafana (anonymous admin)
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/grafana-dashboard-docviewer.json  # land on the docviewer dashboard
+    volumes:
+      - ./grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/docviewer.yaml:ro
+      - ./grafana/docviewer.json:/otel-lgtm/grafana-dashboard-docviewer.json:ro
+
+  web:
+    image: nginx:1.27-alpine
+    ports:
+      - "5173:80"
+    volumes:
+      - ../web:/usr/share/nginx/html:ro
+    depends_on:
+      - docviewer

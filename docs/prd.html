@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD (Product Requirements Document) · docviewer design</title>
+<meta name="description" content="Design documents for docviewer, a Go practice project (resilient read-side aggregator): PRD.">
+<style>
+:root{--fg:#1f2328;--muted:#59636e;--bg:#fff;--line:#d0d7de;--soft:#f6f8fa;--accent:#0969da}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--fg);background:var(--bg)}
+a{color:var(--accent)}
+header.site{border-bottom:1px solid var(--line);background:var(--soft)}
+header.site .in{max-width:60rem;margin:0 auto;padding:.6rem 1rem;display:flex;gap:.25rem 1.1rem;flex-wrap:wrap;align-items:baseline}
+header.site .brand{font-weight:700;color:var(--fg);text-decoration:none;margin-right:.5rem}
+header.site nav{display:flex;gap:.25rem 1.1rem;flex-wrap:wrap}
+header.site nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
+header.site nav a.current{color:var(--fg);font-weight:600;border-bottom:2px solid var(--accent)}
+header.site nav a:hover{color:var(--fg)}
+main{max-width:60rem;margin:0 auto;padding:1rem 1rem 3rem}
+h1{font-size:2rem;line-height:1.2;margin:.8rem 0 .3rem}
+p.subtitle{color:var(--muted);margin:0 0 1.2rem;font-size:1.05rem}
+h2{font-size:1.45rem;margin:2.4rem 0 .8rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+h3{font-size:1.15rem;margin:1.8rem 0 .6rem}
+h4{font-size:1rem;margin:1.4rem 0 .5rem}
+p{margin:.6rem 0}
+.callout{display:flex;gap:.8rem;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem;margin:1rem 0}
+.callout .icon{font-size:1.4rem;line-height:1.3}
+.callout p{margin:.2rem 0}
+.tablewrap{overflow-x:auto;margin:1rem 0}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{border:1px solid var(--line);padding:.45rem .65rem;vertical-align:top;text-align:left}
+th{background:var(--soft);font-weight:600}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:.88em;background:var(--soft);border:1px solid var(--line);padding:.05em .3em;border-radius:4px}
+pre{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem;overflow:auto;font-size:.84rem;line-height:1.45;margin:1rem 0}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+figure.diagram{margin:1.2rem 0;text-align:center;overflow-x:auto}
+figure.diagram .diagram-in{display:inline-block;max-width:100%}
+figure.diagram svg{max-width:100%;height:auto}
+td.nw,th.nw{white-space:nowrap}
+nav.toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.7rem 1.1rem;margin:1.2rem 0;columns:2;column-gap:2rem;font-size:.95rem}
+nav.toc .toc-title{column-span:all;font-weight:600;margin:0 0 .4rem;color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+nav.toc ol{margin:0;padding:0;list-style:none}
+nav.toc ol ol{padding-left:1.1rem;margin:.1rem 0;font-size:.93em}
+nav.toc li{margin:.15rem 0}
+nav.toc>ol>li{break-inside:avoid}
+nav.toc a{text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+ul,ol{padding-left:1.6rem;margin:.5rem 0}
+li{margin:.25rem 0}
+li p{margin:.3rem 0}
+ul.tasks{list-style:none;padding-left:.4rem}
+blockquote{margin:1rem 0;padding:.2rem 1rem;border-left:4px solid var(--line);color:var(--muted)}
+time{white-space:nowrap}
+footer{max-width:60rem;margin:0 auto;padding:1rem;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}
+@media (max-width:640px){nav.toc{columns:1}h1{font-size:1.6rem}}
+</style>
+</head>
+<body>
+<header class="site"><div class="in"><a class="brand" href="index.html">docviewer design</a><nav aria-label="Documents"><a href="index.html">Overview</a><a href="prd.html" class="current" aria-current="page">PRD</a><a href="hld.html">HLD</a><a href="lld.html">LLD</a></nav></div></header>
+<main>
+<h1><span aria-hidden="true">📄</span> PRD</h1>
+<p class="subtitle">Product Requirements Document: part 1 of the design</p>
+<aside class="callout"><span class="icon" aria-hidden="true">📄</span><div><p><strong>Part 1 of the design</strong> (PRD → HLD → LLD). <strong>Purpose:</strong> the product view: what the viewer does and how it behaves, with no technology. The assumptions in section 5 fill the gaps the scenario leaves open; the HLD relies on them.</p></div></aside>
+<nav class="toc" aria-label="Contents"><div class="toc-title">Contents</div><ol><li><a href="#1-summary">1. Summary</a></li><li><a href="#2-users-and-their-goal">2. Users and their goal</a></li><li><a href="#3-goals-and-non-goals">3. Goals and non-goals</a></li><li><a href="#4-requirements">4. Requirements</a></li><li><a href="#5-clarifications-and-assumptions">5. Clarifications and assumptions</a><ol><li><a href="#what-the-list-looks-like">What the list looks like</a></li></ol></li><li><a href="#6-acceptance-criteria">6. Acceptance criteria</a></li><li><a href="#7-open-questions">7. Open questions</a></li></ol></nav>
+<h2 id="1-summary">1. Summary</h2>
+<p>Dealership staff need every document about a vehicle in one place. Today those documents are split between the Sales system and the Service system, so finding them means searching twice. The Unified Document Viewer takes a VIN and returns one list of documents from both systems, each labelled with where it came from.</p>
+<h2 id="2-users-and-their-goal">2. Users and their goal</h2>
+<ul><li><strong>Users:</strong> dealership staff such as service advisors, salespeople and back-office administrators (A-01).</li>
+<li><strong>Goal:</strong> answer &quot;what paperwork exists for this vehicle?&quot; in a single search, without knowing which system holds what.</li></ul>
+<h2 id="3-goals-and-non-goals">3. Goals and non-goals</h2>
+<p><strong>Goals</strong></p>
+<ul><li>One search across both systems.</li>
+<li>One consolidated list, with the source of every document always visible.</li>
+<li>Useful results even when one system is slow or down.</li></ul>
+<p><strong>Non-goals</strong></p>
+<ul><li>Uploading, editing or deleting documents.</li>
+<li>Searching/filtering by anything other than VIN (plate, customer name, order number).</li>
+<li>Previewing document contents inside the viewer.</li>
+<li>Sign-in and permissions (A-08).</li></ul>
+<h2 id="4-requirements">4. Requirements</h2>
+<div class="tablewrap"><table><tr><th class="nw">ID</th><th class="nw">Requirement</th><th>What it means for the user</th></tr>
+<tr><td class="nw">R1</td><td>Unified search</td><td>One search box. The user enters a VIN and submits once.</td></tr>
+<tr><td class="nw">R2</td><td>Data aggregation</td><td>One search covers the Sales and the Service system at the same time. The user never searches each system separately.</td></tr>
+<tr><td class="nw">R3</td><td>Aggregated view</td><td>Results appear as one list, and every document clearly shows which system it came from.</td></tr>
+<tr><td class="nw">C1</td><td>Both systems are mocked</td><td>Sample data stands in for the real dealership systems.</td></tr>
+<tr><td class="nw">C2</td><td>One layer is built in full</td><td>Decided: the backend service. The UI is not part of this design; the behaviour in this PRD applies to any UI built on top of the service.</td></tr></table></div>
+<h2 id="5-clarifications-and-assumptions">5. Clarifications and assumptions</h2>
+<p>Decisions that fill the gaps the scenario leaves open.</p>
+<div class="tablewrap"><table><tr><th class="nw">ID</th><th class="nw">Topic</th><th class="nw">Assumption</th></tr>
+<tr><td class="nw">A-01</td><td class="nw">Users</td><td>Dealership staff (service, sales, back office), not customers.</td></tr>
+<tr><td class="nw">A-02</td><td class="nw">VIN</td><td>17 letters and digits, no I/O/Q; spaces and case normalised. Check digit not enforced (only mandatory in North America). Example: <code>1M8GDM9AXKP042788</code>, also accepted as <code>1m8gdm9axkp042788</code>. It is the hypothetical VIN from <a href="https://en.wikipedia.org/wiki/Vehicle_identification_number#Check-digit_calculation">Wikipedia's check-digit example</a>, not a real vehicle.</td></tr>
+<tr><td class="nw">A-03</td><td class="nw">Document</td><td>Title, type, date, source system and a link, plus a short summary when the source provides one. Clicking a document opens its file from the source system; the viewer doesn't display contents itself.</td></tr>
+<tr><td class="nw">A-04</td><td class="nw">List</td><td>One merged list, newest first, loaded a page at a time (up to 20; &quot;load more&quot; until it ends; no total count). A file held by both systems appears once per system, each labelled (no de-duplication yet; planned).</td></tr>
+<tr><td class="nw">A-05</td><td>A system fails</td><td>Show the other system's results and name the failed one. If the failure is temporary, its documents come on later pages once it answers again, possibly out of date order. If it is permanent (the system rejects the request), the list continues and ends without it, and says so. When no system answers a page, show an error and let the user retry.</td></tr>
+<tr><td class="nw">A-06</td><td>No results</td><td>&quot;No documents found&quot;, not an error.</td></tr>
+<tr><td class="nw">A-07</td><td class="nw">Speed</td><td>Results within 3s; a slower system counts as failed.</td></tr>
+<tr><td class="nw">A-08</td><td class="nw">Access</td><td>Sign-in, permissions and dealership filtering are out of scope.</td></tr></table></div>
+<p>Example document types: purchase agreements, sales invoices, finance contracts and registrations from Sales; repair orders, service invoices, inspection reports and recall notices from Service.</p>
+<h3 id="what-the-list-looks-like">What the list looks like</h3>
+<div class="tablewrap"><table><tr><th class="nw">Date</th><th class="nw">Source</th><th class="nw">Type</th><th class="nw">Title</th><th class="nw">Summary</th></tr>
+<tr><td class="nw">2026-06-01</td><td class="nw">Service</td><td>Repair order</td><td>10,000 km service</td><td>Oil and filter changed, brake pads replaced</td></tr>
+<tr><td class="nw">2025-11-12</td><td class="nw">Service</td><td>Recall notice</td><td>Airbag inflator recall</td><td>Driver airbag replaced under recall campaign</td></tr>
+<tr><td class="nw">2024-03-02</td><td class="nw">Sales</td><td>Finance contract</td><td>36-month finance plan</td><td class="nw"></td></tr>
+<tr><td class="nw">2024-03-02</td><td class="nw">Sales</td><td>Purchase agreement</td><td>Purchase agreement</td><td class="nw"></td></tr>
+<tr><td class="nw">2024-03-02</td><td class="nw">Sales</td><td>Pre-delivery inspection</td><td>PDI checklist, signed</td><td class="nw"></td></tr>
+<tr><td class="nw">2024-03-02</td><td class="nw">Service</td><td>Pre-delivery inspection</td><td>PDI checklist, signed</td><td class="nw"></td></tr></table></div>
+<p>Title and summary come from the source systems themselves (here, the mock data); the viewer never writes its own. Sales documents rarely carry a summary. When a system fails, a notice names it (A-05).</p>
+<h2 id="6-acceptance-criteria">6. Acceptance criteria</h2>
+<ul><li><strong>AC-01:</strong> Given a valid VIN with documents in both systems, when the user searches, then one list contains documents from both, newest first, each showing its source system.</li>
+<li><strong>AC-02:</strong> Given a VIN typed in lowercase or with surrounding spaces, when the user searches, then it is treated as the normalised VIN.</li>
+<li><strong>AC-03:</strong> Given input that is not a valid VIN, when the user searches, then a message explains why and neither system is queried.</li>
+<li><strong>AC-04:</strong> Given one system fails or exceeds the time limit, when the user searches, then the other system's results are shown with a notice naming the failed system.</li>
+<li><strong>AC-05:</strong> Given more documents than one page holds, when the user loads more, then the list continues newest first with no document skipped or repeated.</li>
+<li><strong>AC-06:</strong> Given both systems fail, when the user searches, then an error explains both systems are unavailable.</li>
+<li><strong>AC-07:</strong> Given a valid VIN with no documents in either system, when the user searches, then a &quot;no documents found&quot; message is shown.</li>
+<li><strong>AC-08:</strong> Given any search, results or a clear failure appear within 3 seconds.</li>
+<li><strong>AC-09:</strong> Given a document whose source system provides a summary, when it appears in the list, then the summary is shown with its title; documents without one show the title only.</li>
+<li><strong>AC-10:</strong> Given a document in the list, when the user opens it, then its file opens from the source system's link.</li>
+<li><strong>AC-11:</strong> Given the same file in both systems, when the user searches, then it appears once for each system, each labelled with its source.</li>
+<li><strong>AC-12:</strong> Given one system rejects the request permanently, when the user pages through the list, then the list continues and ends without it, with a notice that its documents are missing.</li></ul>
+<h2 id="7-open-questions">7. Open questions</h2>
+<ul><li>Should users be able to filter by source system or document type? Not required; the demo UI filters client-side, and a server-side filter is a later enhancement.</li></ul>
+</main>
+<footer>Design documents for docviewer, written before the code and kept in step with it. Code: <a href="https://github.com/zranitm/docviewer">github.com/zranitm/docviewer</a>.</footer>
+</body>
+</html>

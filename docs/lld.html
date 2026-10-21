@@ -1,0 +1,1789 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLD (Low-Level Design) · docviewer design</title>
+<meta name="description" content="Design documents for docviewer, a Go practice project (resilient read-side aggregator): LLD.">
+<style>
+:root{--fg:#1f2328;--muted:#59636e;--bg:#fff;--line:#d0d7de;--soft:#f6f8fa;--accent:#0969da}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--fg);background:var(--bg)}
+a{color:var(--accent)}
+header.site{border-bottom:1px solid var(--line);background:var(--soft)}
+header.site .in{max-width:60rem;margin:0 auto;padding:.6rem 1rem;display:flex;gap:.25rem 1.1rem;flex-wrap:wrap;align-items:baseline}
+header.site .brand{font-weight:700;color:var(--fg);text-decoration:none;margin-right:.5rem}
+header.site nav{display:flex;gap:.25rem 1.1rem;flex-wrap:wrap}
+header.site nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
+header.site nav a.current{color:var(--fg);font-weight:600;border-bottom:2px solid var(--accent)}
+header.site nav a:hover{color:var(--fg)}
+main{max-width:60rem;margin:0 auto;padding:1rem 1rem 3rem}
+h1{font-size:2rem;line-height:1.2;margin:.8rem 0 .3rem}
+p.subtitle{color:var(--muted);margin:0 0 1.2rem;font-size:1.05rem}
+h2{font-size:1.45rem;margin:2.4rem 0 .8rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+h3{font-size:1.15rem;margin:1.8rem 0 .6rem}
+h4{font-size:1rem;margin:1.4rem 0 .5rem}
+p{margin:.6rem 0}
+.callout{display:flex;gap:.8rem;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem;margin:1rem 0}
+.callout .icon{font-size:1.4rem;line-height:1.3}
+.callout p{margin:.2rem 0}
+.tablewrap{overflow-x:auto;margin:1rem 0}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{border:1px solid var(--line);padding:.45rem .65rem;vertical-align:top;text-align:left}
+th{background:var(--soft);font-weight:600}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:.88em;background:var(--soft);border:1px solid var(--line);padding:.05em .3em;border-radius:4px}
+pre{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem;overflow:auto;font-size:.84rem;line-height:1.45;margin:1rem 0}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+figure.diagram{margin:1.2rem 0;text-align:center;overflow-x:auto}
+figure.diagram .diagram-in{display:inline-block;max-width:100%}
+figure.diagram svg{max-width:100%;height:auto}
+td.nw,th.nw{white-space:nowrap}
+nav.toc{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.7rem 1.1rem;margin:1.2rem 0;columns:2;column-gap:2rem;font-size:.95rem}
+nav.toc .toc-title{column-span:all;font-weight:600;margin:0 0 .4rem;color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+nav.toc ol{margin:0;padding:0;list-style:none}
+nav.toc ol ol{padding-left:1.1rem;margin:.1rem 0;font-size:.93em}
+nav.toc li{margin:.15rem 0}
+nav.toc>ol>li{break-inside:avoid}
+nav.toc a{text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+ul,ol{padding-left:1.6rem;margin:.5rem 0}
+li{margin:.25rem 0}
+li p{margin:.3rem 0}
+ul.tasks{list-style:none;padding-left:.4rem}
+blockquote{margin:1rem 0;padding:.2rem 1rem;border-left:4px solid var(--line);color:var(--muted)}
+time{white-space:nowrap}
+footer{max-width:60rem;margin:0 auto;padding:1rem;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}
+@media (max-width:640px){nav.toc{columns:1}h1{font-size:1.6rem}}
+</style>
+</head>
+<body>
+<header class="site"><div class="in"><a class="brand" href="index.html">docviewer design</a><nav aria-label="Documents"><a href="index.html">Overview</a><a href="prd.html">PRD</a><a href="hld.html">HLD</a><a href="lld.html" class="current" aria-current="page">LLD</a></nav></div></header>
+<main>
+<h1><span aria-hidden="true">🔬</span> LLD</h1>
+<p class="subtitle">Low-Level Design: part 3 of the design</p>
+<aside class="callout"><span class="icon" aria-hidden="true">🔬</span><div><p><strong>Part 3 of the design</strong> (PRD → HLD → LLD). <strong>Purpose:</strong> a draft of what the code will contain: repository layout, packages, core types, key logic, configuration, mock systems and test plan. It fixes the structure before the code exists, so the implementation follows a reviewed shape instead of inventing one as it goes. The code here is deliberately partial (signatures and the tricky parts), so there is little false code to correct later.</p></div></aside>
+<nav class="toc" aria-label="Contents"><div class="toc-title">Contents</div><ol><li><a href="#1-repository-layout">1. Repository layout</a></li><li><a href="#2-packages">2. Packages</a></li><li><a href="#3-core-types">3. Core types</a></li><li><a href="#4-aggregator-draft">4. Aggregator (draft)</a></li><li><a href="#5-resilience-draft">5. Resilience (draft)</a></li><li><a href="#6-clients-adapters-and-field-mapping">6. Clients, adapters and field mapping</a><ol><li><a href="#sales-system-api-mapping">Sales System API mapping</a></li><li><a href="#service-system-api-mapping">Service System API mapping</a></li></ol></li><li><a href="#7-http-layer">7. HTTP layer</a><ol><li><a href="#error-flow-end-to-end">Error flow, end to end</a></li><li><a href="#error-mapping-handler">Error mapping (handler)</a></li></ol></li><li><a href="#8-redaction-logs-and-traces">8. Redaction (logs and traces)</a></li><li><a href="#9-configuration">9. Configuration</a></li><li><a href="#10-mock-systems-test-harness">10. Mock systems (test harness)</a></li><li><a href="#11-bootstrap-and-wiring">11. Bootstrap and wiring</a></li><li><a href="#12-test-plan">12. Test plan</a></li><li><a href="#13-implementation-order">13. Implementation order</a></li></ol></nav>
+<h2 id="1-repository-layout">1. Repository layout</h2>
+<pre><code class="language-plain-text">docviewer/
+├── cmd/
+│   ├── docviewer/            # bootstrap: config, telemetry, API deps + server, shutdown
+│   │   └── main.go
+│   ├── mock-sales/           # mock Sales System API (:8081)
+│   │   └── main.go
+│   └── mock-service/         # mock Service System API (:8082)
+│       └── main.go
+├── internal/
+│   ├── handler/              # entry points, one package per transport
+│   │   └── api/              # HTTP: routes, handlers, middleware, error mapping
+│   │       ├── dependencies.go   # wires what the HTTP API needs, incl. the source registry
+│   │       ├── server.go     # Gin router, middleware, routes, http.Server
+│   │       ├── handler.go
+│   │       ├── middleware.go
+│   │       ├── errors.go     # error -&gt; status, code and message
+│   │       ├── policy.go     # the upstream resilience policy: failed responses, retryable errors
+│   │       └── dto/          # request params, response JSON, mapping from model
+│   │           └── dto.go
+│   ├── aggregator/           # paging across sources: State, fan-out, interleave, cut
+│   │   ├── aggregator.go
+│   │   ├── builder.go        # assembles an Aggregator one source at a time
+│   │   ├── errors.go         # the service layer's sentinel errors
+│   │   ├── state.go          # State: query + how far each source has got
+│   │   ├── cursor.go         # State &lt;-&gt; opaque token; the only file that knows the token
+│   │   └── source/           # the Source port the aggregator pages through
+│   │       ├── source.go     # Source, Request, Position, Page, errors
+│   │       ├── errmap/       # maps client sentinel errors to Source semantics
+│   │       │   └── errmap.go
+│   │       ├── sales/        # adapter: Sales client -&gt; Source
+│   │       │   ├── adapter.go    # positions -&gt; paging params, error mapping
+│   │       │   └── mapping.go    # wire -&gt; model
+│   │       └── service/      # adapter: Service client -&gt; Source
+│   │           ├── adapter.go
+│   │           └── mapping.go
+│   ├── client/               # upstream API clients: HTTP + wire models, no domain
+│   │   ├── errors.go         # sentinel errors shared by every client, and FromHTTP
+│   │   ├── salesapi/
+│   │   │   ├── client.go
+│   │   │   └── model.go      # Sales wire payload (camelCase JSON), exported
+│   │   └── serviceapi/
+│   │       ├── client.go
+│   │       └── model.go      # Service wire payload (snake_case JSON), exported
+│   ├── model/                # domain models: Document, Entry, VIN, Source (no JSON tags)
+│   │   ├── document.go
+│   │   ├── type.go           # canonical document types, checksum rule
+│   │   └── vin.go
+│   ├── mock/                 # test harness, shared by both mock servers
+│   │   ├── faults.go         # fault controls
+│   │   ├── fixtures.go       # fixture loading
+│   │   ├── sales.go          # the mock's own Sales response structs
+│   │   ├── server.go         # Config and Serve, shared by both mock binaries
+│   │   ├── service.go        # the mock's own Service response structs
+│   │   ├── store.go          # generic Store[T]: in-memory records with keyset paging
+│   │   └── fixtures/
+│   │       ├── sales.json
+│   │       ├── service.json
+│   │       └── placeholder.pdf
+│   ├── config/
+│   │   └── config.go         # the service's schema: sections, tags, Validate
+│   └── telemetry/            # the service's metrics and PII policy
+│       ├── metrics.go        # the service's instruments; implements aggregator.Observer
+│       └── pii.go            # the PII policy handed to pkg/redact
+├── pkg/                      # generic and reusable; never imports internal/
+│   ├── httpjson/             # GET JSON with context, size cap, typed status errors
+│   │   └── httpjson.go
+│   ├── resilience/           # breaker + bounded retry for any call: Guard, Policy
+│   │   ├── guard.go
+│   │   └── resiliencehttp/   # the same for any http.Client, as a RoundTripper
+│   │       └── transport.go
+│   ├── otelsetup/            # OpenTelemetry setup: OTLP traces, metrics, logs
+│   │   ├── otel.go
+│   │   └── slog.go
+│   ├── configload/           # typed YAML + env loader with validation
+│   │   └── configload.go
+│   └── redact/               # rule-driven redaction of fields and text; no logging or tracing
+│       ├── redact.go
+│       ├── redactslog/       # opt-in: a Redactor as an slog.Handler
+│       │   └── handler.go
+│       └── redactotel/       # opt-in: a Redactor as an OpenTelemetry span exporter
+│           └── exporter.go
+├── configs/
+│   ├── config.yaml           # the service's committed defaults; config.local.yaml is git-ignored
+│   ├── mock-sales.yaml
+│   └── mock-service.yaml
+├── docs/                     # design documents (PRD, HLD, LLD), served by GitHub Pages
+│   ├── index.html            # entry point, links the four docs
+│   ├── prd.html
+│   ├── hld.html
+│   ├── lld.html
+├── api/
+│   └── openapi.yaml
+├── testdata/
+│   └── contracts/            # golden upstream responses, shared by client and mock tests
+│       ├── sales_page.json
+│       └── service_page.json
+├── test/                     # end-to-end tests: service + both mocks
+├── deploy/
+│   ├── Dockerfile
+│   ├── docker-compose.yml    # service, mocks, grafana/otel-lgtm, nginx serving web/ on :5173
+│   └── grafana/
+│       └── docviewer.json    # provisioned dashboard
+├── web/                      # demo UI (static HTML, CSS and JS); out of scope for this design
+├── .env.example              # every env override, commented; copy to .env (git-ignored)
+├── Makefile                  # up, down, test, cover, lint
+├── go.mod                    # go 1.27
+└── README.md</code></pre>
+<p>Tests sit next to the code they cover as <code>*_test.go</code> and aren't listed here; the test plan is in section 12.</p>
+<h2 id="2-packages">2. Packages</h2>
+<div class="tablewrap"><table><tr><th class="nw">Package</th><th>Responsibility</th><th>Depends on</th></tr>
+<tr><td><code>cmd/docviewer</code></td><td>Bootstrap: load config, set up telemetry, build the HTTP API's dependencies and server, run, shut down in reverse</td><td>config, telemetry, handler/api</td></tr>
+<tr><td><code>cmd/mock-sales</code>, <code>cmd/mock-service</code></td><td>Mock servers (test harness): fixture loading, HTTP handlers</td><td>mock, telemetry</td></tr>
+<tr><td><code>internal/handler/api</code></td><td>Routes (Gin), handlers, middleware, error mapping, and the wiring of its own dependencies (<code>dependencies.go</code>)</td><td>aggregator, dto, model; for wiring: clients, adapters, config, pkg/httpjson, pkg/resilience/resiliencehttp</td></tr>
+<tr><td><code>internal/handler/api/dto</code></td><td>Request parameters, response JSON, status names and error codes: the public contract, mapped from the domain and the aggregator's results</td><td>aggregator, model</td></tr>
+<tr><td><code>internal/aggregator</code></td><td>Paging across sources: <code>State</code> and its cursor token (<code>cursor.go</code>), fan-out, interleave, cut, coalescing, and the service's sentinel errors. Knows nothing about HTTP or upstream formats</td><td>model, aggregator/source</td></tr>
+<tr><td><code>internal/aggregator/source</code></td><td>The port the aggregator pages through: <code>Source</code>, <code>Request</code>, <code>Position</code>, <code>Page</code>, <code>ErrPermanent</code>, <code>ErrUnsupported</code></td><td class="nw">model</td></tr>
+<tr><td><code>internal/aggregator/source/errmap</code></td><td>Maps client sentinel errors to <code>Source</code> semantics (not found means done; rejected, too large and malformed are permanent)</td><td>aggregator/source, client</td></tr>
+<tr><td><code>internal/aggregator/source/sales</code>, <code>.../service</code></td><td>Adapters, one per upstream: positions to the client's paging parameters, client errors through <code>errmap</code>, wire models to the domain</td><td>aggregator/source, errmap, the matching client, model</td></tr>
+<tr><td><code>internal/client</code></td><td>Sentinel errors shared by every upstream client, and <code>FromHTTP</code>, which turns HTTP outcomes into them</td><td class="nw">pkg/httpjson</td></tr>
+<tr><td><code>internal/client/salesapi</code>, <code>internal/client/serviceapi</code></td><td>Upstream API clients: endpoints, query parameters and exported wire models. No paging rules and no domain mapping, so any code needing raw upstream data can use them</td><td>client, pkg/httpjson</td></tr>
+<tr><td><code>internal/model</code></td><td>Domain models: <code>Document</code>, <code>Entry</code>, <code>SourceRef</code>, <code>VIN</code>, source names. No JSON tags</td><td class="nw">Nothing</td></tr>
+<tr><td><code>internal/mock</code></td><td>The mocks' own response structs, in-memory store with keyset paging, fault controls, fixtures</td><td>Nothing internal</td></tr>
+<tr><td><code>internal/config</code></td><td>The service's schema and its cross-field rules</td><td>pkg/configload</td></tr>
+<tr><td><code>internal/telemetry</code></td><td>The service's metric instruments and PII policy; plugs the redaction adapters it chooses into <code>pkg/otelsetup</code></td><td>pkg/otelsetup, pkg/redact and both adapters</td></tr>
+<tr><td class="nw"><code>pkg/httpjson</code></td><td>GET a URL and decode JSON: context-aware, size-capped, typed status errors</td><td>Nothing internal (standard library)</td></tr>
+<tr><td><code>pkg/resilience</code></td><td><code>Guard[T]</code> and <code>Policy</code>: any call behind a circuit breaker and a bounded retry. Knows nothing about HTTP, gRPC or any other transport</td><td>Nothing internal (gobreaker)</td></tr>
+<tr><td><code>pkg/resilience/resiliencehttp</code></td><td><code>NewTransport</code>: a <code>Guard</code> as an <code>http.RoundTripper</code>, so any <code>http.Client</code> gets it. A gRPC client would get a sibling <code>resiliencegrpc</code> interceptor on the same <code>Guard</code></td><td>pkg/resilience</td></tr>
+<tr><td><code>pkg/otelsetup</code></td><td>Generic OpenTelemetry setup: OTLP exporters and providers for traces, metrics and logs, an slog handler writing to stdout and the OTel bridge, one <code>Shutdown</code></td><td>Nothing internal (OpenTelemetry SDK)</td></tr>
+<tr><td class="nw"><code>pkg/redact</code></td><td><code>Redactor</code>: rule-driven redaction of key/value fields and free text. Imports no logging or tracing library, and knows nothing about VINs or documents</td><td>Nothing (standard library)</td></tr>
+<tr><td><code>pkg/redact/redactslog</code>, <code>pkg/redact/redactotel</code></td><td>Opt-in adapters: a <code>Redactor</code> as an <code>slog.Handler</code>, and as an OpenTelemetry span exporter</td><td>pkg/redact; slog or the OpenTelemetry SDK</td></tr>
+<tr><td><code>pkg/configload</code></td><td>Generic typed loader: one YAML document, env overrides, struct-tag and <code>Validate</code> checks, path resolution</td><td>Nothing internal (viper, mapstructure, validator, godotenv)</td></tr></table></div>
+<p>Dependency rules:</p>
+<ul><li><strong>Generic by default.</strong> Anything that isn't domain logic lives in <code>pkg/</code> and knows nothing about vehicles, documents or sources. <code>internal/</code> holds the domain and the policies plugged into those packages, and <code>pkg/</code> never imports <code>internal/</code>.</li>
+<li><strong>Each layer knows one thing.</strong> Clients know an upstream's HTTP API, not paging or the domain. Adapters know how to page one upstream, not HTTP details. The aggregator knows how to page across sources, not upstream formats; inside it, only <code>cursor.go</code> knows the token's encoding.</li>
+<li><strong>Resilience lives in the transport,</strong> so every caller of a client gets retry and a breaker, configured once in wiring.</li>
+<li><strong>Each layer owns its errors.</strong> Clients return client sentinels, adapters turn them into the port's <code>ErrPermanent</code>, the aggregator returns its own, and the handler maps only domain, service and cursor errors to HTTP. No layer inspects another layer's status codes.</li>
+<li><strong>Each entry point wires itself.</strong> The HTTP API builds its graph in <code>handler/api/dependencies.go</code>; another entry point would have its own, calling the same constructors. <code>main</code> only bootstraps.</li>
+<li>The aggregator's tests run with fake sources and no network; the service never imports the <code>mock</code> package.</li></ul>
+<p><strong>Go conventions used throughout</strong></p>
+<ul><li><strong>Enums are typed constants, never string literals.</strong> A zero value is either meaningful (<code>redact.Keep</code>) or deliberately invalid (<code>Status</code> starts at <code>iota + 1</code>; an empty <code>Phase</code> fails <code>Valid</code>); <code>stringer</code> generates names for logs.</li>
+<li><strong>Wire values live with their owner, mapped only across a contract boundary.</strong> <code>Phase</code> names are defined in <code>aggregator</code> and written as is by its cursor token, in the same package. The public API is a separate contract, so <code>dto</code> maps statuses to its own names and owns the error codes. Upstream parameters live in each client.</li>
+<li><strong>Request validation happens at the edge, with the framework's binding.</strong> Gin binds and validates the query string from struct tags (<code>form</code>, <code>binding</code>); only the VIN, a domain type, is parsed by hand (<code>model.ParseVIN</code>). The service documents its preconditions instead of re-checking them.</li>
+<li><strong>Errors:</strong> sentinels checked with <code>errors.Is</code>, typed errors with <code>errors.As</code>, wrapping with <code>%w</code>; error strings are lower-case and never end in punctuation.</li>
+<li><strong>Constructors</strong> return concrete types and validate once (<code>salesapi.New</code> parses its URL), so bad input fails at startup.</li>
+<li><strong>No globals:</strong> loggers, HTTP clients and config are injected; nothing uses <code>slog.Default</code> or <code>http.DefaultClient</code>.</li>
+<li><strong>Interfaces belong to the consumer:</strong> <code>source.Source</code> sits on the aggregator's side; adapters implement it.</li>
+<li><strong>No import aliases needed:</strong> package names don't clash (<code>salesapi</code> the client, <code>sales</code> the adapter; <code>configload</code> and <code>otelsetup</code> in <code>pkg/</code>, so they never collide with the service's own <code>config</code> and <code>telemetry</code>), and parameter names never shadow a package (<code>rawURL</code>, not <code>url</code>).</li>
+<li><strong><code>context.Context</code> comes first</strong> in every call that blocks or reaches the network.</li>
+<li><strong>No test logic in production code:</strong> no test-only flags, branches or exported helpers; tests use the existing seams (section 12).</li></ul>
+<h2 id="3-core-types">3. Core types</h2>
+<p><strong>Three model layers.</strong> Each boundary maps explicitly, so a change on one side doesn't ripple through the others:</p>
+<ul><li><strong>Domain</strong> (<code>internal/model</code>): <code>Document</code>, <code>Entry</code>, <code>SourceRef</code>, <code>VIN</code>, <code>Source</code>. No JSON tags; nothing outside the service sees them.</li>
+<li><strong>API</strong> (<code>internal/handler/api/dto</code>): the request parameters and response JSON, the public contract, mapped from the domain.</li>
+<li><strong>Wire</strong> (<code>model.go</code> in each client under <code>internal/client/</code>): the upstream's payload exactly as it sends it, exported so any code needing raw data can use it. Adapters map it to the domain in <code>mapping.go</code>.</li></ul>
+<pre><code class="language-go">package model // domain models: no JSON tags; the API and the clients own their wire shapes
+
+// Source names an upstream system. Each adapter declares its own name, so
+// adding a source never touches this package.
+type Source string
+
+type Document struct {
+	ID       string // &quot;&lt;source&gt;:&lt;upstream id&gt;&quot;
+	Source   Source
+	Type     string // e.g. &quot;repair_order&quot;; &quot;other&quot; if unknown (CanonicalType)
+	Title    string
+	Summary  string // only when the source provides one
+	IssuedAt time.Time
+	URL      string
+	Checksum string // SHA-256 of the file; empty if the source gives none
+}
+
+// Entry is one row of the consolidated list. Sources has one entry today; it is
+// a list so the planned de-duplication (HLD section 14) can add more.
+type Entry struct {
+	Type     string
+	Title    string
+	Summary  string
+	IssuedAt time.Time
+	Sources  []SourceRef
+}
+
+type SourceRef struct {
+	Source Source
+	ID     string
+	URL    string
+}
+
+const idSep = &quot;:&quot;
+
+// DocumentID is how a document is identified outside its source,
+// &quot;&lt;source&gt;:&lt;upstream id&gt;&quot;, so IDs never collide across sources.
+func DocumentID(src Source, upstreamID string) string { return string(src) + idSep + upstreamID }
+
+// UpstreamID strips the source prefix from a DocumentID.
+func UpstreamID(src Source, id string) string { return strings.TrimPrefix(id, string(src)+idSep) }
+
+// CanonicalType maps an upstream type name to the canonical snake_case set
+// (the PRD's example types); anything unknown is &quot;other&quot;. Adapters call it,
+// so the known set lives in one place. (Signature only.)
+func CanonicalType(upstream string) string
+
+// Checksum normalises an upstream file digest: a 64-character hex SHA-256 is
+// kept lower-cased; anything else is dropped (empty), since it could never
+// match across systems. (Signature only.)
+func Checksum(upstream string) string
+
+type VIN string
+
+const (
+	vinLength    = 17
+	vinForbidden = &quot;IOQ&quot; // excluded by the VIN standard: they look like 1 and 0
+)
+
+var ErrInvalidVIN = errors.New(&quot;invalid VIN&quot;)
+
+// ParseVIN trims and upper-cases the input, then validates it:
+// 17 characters, letters and digits only, never I, O or Q.
+// The check digit is deliberately not enforced (PRD A-02).
+func ParseVIN(raw string) (VIN, error) {
+	s := strings.ToUpper(strings.TrimSpace(raw))
+	rs := []rune(s) // count characters, not bytes, so a non-ASCII letter is reported at its real position
+	if len(rs) != vinLength {
+		return &quot;&quot;, fmt.Errorf(&quot;%w: must be %d characters, got %d&quot;, ErrInvalidVIN, vinLength, len(rs))
+	}
+	for i, r := range rs {
+		switch {
+		case strings.ContainsRune(vinForbidden, r):
+			return &quot;&quot;, fmt.Errorf(&quot;%w: %q is not allowed (position %d)&quot;, ErrInvalidVIN, r, i+1)
+		case (r &gt;= 'A' &amp;&amp; r &lt;= 'Z') || (r &gt;= '0' &amp;&amp; r &lt;= '9'):
+		default:
+			return &quot;&quot;, fmt.Errorf(&quot;%w: invalid character %q (position %d)&quot;, ErrInvalidVIN, r, i+1)
+		}
+	}
+	return VIN(s), nil
+}</code></pre>
+<pre><code class="language-go">package dto
+
+// DocumentPage is the response body of GET /v1/vehicles/{vin}/documents.
+type DocumentPage struct {
+	VIN        string         `json:&quot;vin&quot;`
+	Documents  []Document     `json:&quot;documents&quot;`
+	NextCursor *string        `json:&quot;next_cursor&quot;` // null on the last page
+	Sources    []SourceStatus `json:&quot;sources&quot;`
+}
+
+type Document struct {
+	Type     string      `json:&quot;type&quot;`
+	Title    string      `json:&quot;title&quot;`
+	Summary  string      `json:&quot;summary,omitempty&quot;`
+	IssuedAt time.Time   `json:&quot;issued_at&quot;`
+	Sources  []SourceRef `json:&quot;sources&quot;`
+}
+
+type SourceRef struct {
+	Source string `json:&quot;source&quot;`
+	ID     string `json:&quot;id&quot;`
+	URL    string `json:&quot;url&quot;`
+}
+
+type SourceStatus struct {
+	Source string `json:&quot;source&quot;`
+	Status string `json:&quot;status&quot;`
+}
+
+// statusNames are the wire names of aggregator statuses: the API contract is
+// fixed here, not in the aggregator.
+var statusNames = map[aggregator.Status]string{
+	aggregator.StatusOK:          &quot;ok&quot;,
+	aggregator.StatusTimeout:     &quot;timeout&quot;,
+	aggregator.StatusError:       &quot;error&quot;,
+	aggregator.StatusDone:        &quot;done&quot;,
+	aggregator.StatusUnavailable: &quot;unavailable&quot;,
+}
+
+// ErrorCode is a machine-readable error code, part of the API contract.
+type ErrorCode string
+
+const (
+	CodeInvalidVIN         ErrorCode = &quot;invalid_vin&quot;
+	CodeInvalidLimit       ErrorCode = &quot;invalid_limit&quot;
+	CodeInvalidCursor      ErrorCode = &quot;invalid_cursor&quot;
+	CodeCursorOutdated     ErrorCode = &quot;cursor_outdated&quot;
+	CodeSourcesUnavailable ErrorCode = &quot;sources_unavailable&quot;
+	CodeNotFound           ErrorCode = &quot;not_found&quot;
+	CodeInternal           ErrorCode = &quot;internal_error&quot;
+)
+
+// ErrorResponse is the body of every error: {&quot;error&quot;: {&quot;code&quot;, &quot;message&quot;}}.
+// Sources is set only for sources_unavailable.
+type ErrorResponse struct {
+	Error   ErrorDetail    `json:&quot;error&quot;`
+	Sources []SourceStatus `json:&quot;sources,omitempty&quot;`
+}
+
+type ErrorDetail struct {
+	Code    ErrorCode `json:&quot;code&quot;`
+	Message string    `json:&quot;message&quot;`
+}
+
+// FromEntries maps domain entries to the response shape. (Signature only.)
+func FromEntries(es []model.Entry) []Document
+
+// NewDocumentPage builds the 200 body. (Signature only.)
+func NewDocumentPage(res aggregator.Result) DocumentPage // next_cursor is null when res.NextCursor is empty
+
+// ListQuery is the query string of GET /v1/vehicles/{vin}/documents. Gin binds
+// and validates it from these tags; the default and bounds are the API
+// contract, the same as in the OpenAPI spec.
+type ListQuery struct {
+	Limit  int    `form:&quot;limit,default=20&quot; binding:&quot;min=1,max=100&quot;`
+	Cursor string `form:&quot;cursor&quot;`
+}
+
+// ErrInvalidLimit wraps any ListQuery binding error: limit is its only
+// validated field.
+var ErrInvalidLimit = errors.New(&quot;invalid limit&quot;)</code></pre>
+<pre><code class="language-go">package source // the port the aggregator pages through
+
+// ErrPermanent marks an upstream failure that retrying won't fix. Adapters
+// produce it (through errmap); every other error is transient.
+var ErrPermanent = errors.New(&quot;permanent upstream error&quot;)
+
+// ErrUnsupported is a Request field this source can't honour. It wraps
+// ErrPermanent: asking again won't help, and ignoring the field would return
+// the wrong documents.
+var ErrUnsupported = fmt.Errorf(&quot;%w: unsupported request&quot;, ErrPermanent)
+
+// Position is where paging stands in one source: the last document
+// already returned to the client.
+type Position struct {
+	IssuedAt time.Time
+	ID       string // document ID as returned, e.g. &quot;sales:S-1002&quot;
+}
+
+// Page is one page from a source, in that source's own order (newest first).
+type Page struct {
+	Docs    []model.Document
+	HasMore bool
+	SkipTo  *Position // set only when every item fetched was malformed (section 6)
+}
+
+// Request is one page to fetch. New dimensions (a filter, an order) are added
+// as fields whose zero value means &quot;none&quot;, so existing adapters keep compiling
+// and keep their current behaviour.
+type Request struct {
+	VIN   model.VIN
+	After *Position // nil: from the newest
+	Limit int
+}
+
+// Source is one upstream system as the aggregator sees it. FetchPage returns
+// up to req.Limit documents that come after req.After in the source's order
+// (date descending, then the source's own ID order). A field it can't honour
+// is ErrUnsupported, never silently ignored.
+type Source interface {
+	Name() model.Source
+	FetchPage(ctx context.Context, req Request) (Page, error)
+}</code></pre>
+<pre><code class="language-go">package aggregator // cursor.go: State &lt;-&gt; opaque token; the only file that knows the token's format
+
+// cursorVersion changes only when the meaning of an existing field changes.
+const cursorVersion = 1
+
+// cursorToken is the JSON inside the base64url string (HLD section 7).
+type cursorToken struct {
+	V       int                     `json:&quot;v&quot;`
+	Query   cursorQuery             `json:&quot;query&quot;`
+	Streams map[string]cursorStream `json:&quot;streams&quot;`
+}
+
+type cursorQuery struct {
+	VIN string `json:&quot;vin&quot;` // new Query fields join here, omitempty, with a default
+}
+
+type cursorStream struct {
+	State Phase    `json:&quot;state&quot;`         // written as is; decodeCursor checks Phase.Valid
+	Key   []string `json:&quot;key,omitempty&quot;` // [date, id] for newest first
+}
+
+// encodeCursor turns a paging State into the token clients hold.
+func encodeCursor(s State) string
+
+// decodeCursor is strict: bad encoding, an unknown version, any unknown field,
+// an invalid phase or a malformed key is ErrInvalidCursor, so a token written by newer code is refused
+// rather than half-read. Its query must equal want, and every source in
+// sources must be present (ErrCursorOutdated); unknown sources are dropped.
+// (Signatures only.)
+func decodeCursor(raw string, want Query, sources []model.Source) (State, error)</code></pre>
+<h2 id="4-aggregator-draft">4. Aggregator (draft)</h2>
+<pre><code class="language-go">package aggregator
+
+// Status is how one source's call for this page went. The zero value is not a
+// valid status, so a SourceResult that was never filled in can't pass as ok.
+// Its wire names live in dto, not here.
+//
+//go:generate stringer -type=Status -trimprefix=Status
+type Status int
+
+const (
+	StatusOK Status = iota + 1
+	StatusTimeout
+	StatusError
+	StatusDone        // nothing left; not called
+	StatusUnavailable // permanent failure; not called again
+)
+
+// The service layer's sentinel errors (errors.go). The handler maps these,
+// with model's and dto's, to HTTP.
+var (
+	ErrSourcesUnavailable = errors.New(&quot;no source answered&quot;)
+	ErrInvalidCursor      = errors.New(&quot;invalid cursor&quot;)
+	ErrCursorOutdated     = errors.New(&quot;cursor outdated&quot;) // a source was added since it was issued
+)
+
+// SourcesUnavailableError carries the per-source statuses behind
+// ErrSourcesUnavailable, so the 502 response can name them.
+type SourcesUnavailableError struct{ Sources []SourceResult }
+
+func (e *SourcesUnavailableError) Error() string { return ErrSourcesUnavailable.Error() }
+func (e *SourcesUnavailableError) Unwrap() error { return ErrSourcesUnavailable }
+
+// Retryable reports whether any source failed transiently, so asking again
+// with the same cursor may succeed.
+func (e *SourcesUnavailableError) Retryable() bool {
+	return slices.ContainsFunc(e.Sources, func(r SourceResult) bool {
+		return r.Status == StatusTimeout || r.Status == StatusError
+	})
+}
+
+// Query is everything that defines the list. New dimensions (an order, a
+// filter) are added as fields with a default, and to the cursor's token.
+type Query struct {
+	VIN model.VIN
+}
+
+// request is the one place a Query turns into a source.Request: a new Query
+// field is mapped here and nowhere else.
+func (q Query) request(after *source.Position, limit int) source.Request {
+	return source.Request{VIN: q.VIN, After: after, Limit: limit}
+}
+
+// Phase is how far a source has got. Its values are also the names the cursor
+// writes, so they are defined once, here. The zero value is not a phase, so a
+// missing entry can never pass as PhaseStart.
+type Phase string
+
+const (
+	PhaseStart       Phase = &quot;start&quot;       // nothing returned yet: read from the beginning
+	PhaseAfter       Phase = &quot;after&quot;       // At is the last document returned
+	PhaseDone        Phase = &quot;done&quot;        // nothing left
+	PhaseUnavailable Phase = &quot;unavailable&quot; // failed permanently; not called again
+)
+
+// Valid reports whether p is one of the phases above.
+func (p Phase) Valid() bool {
+	switch p {
+	case PhaseStart, PhaseAfter, PhaseDone, PhaseUnavailable:
+		return true
+	}
+	return false
+}
+
+type SourceState struct {
+	Phase Phase
+	At    *source.Position // set when Phase is PhaseAfter
+}
+
+// State is where paging stands: which list, and how far each source has got.
+// The aggregator pages on it; cursor.go turns it into the token clients hold.
+type State struct {
+	Query   Query
+	Sources map[model.Source]SourceState
+}
+
+type SourceResult struct {
+	Source model.Source
+	Status Status
+	Page   source.Page // empty unless Status is ok
+}
+
+type Result struct {
+	VIN     model.VIN
+	Entries []model.Entry // one page, newest first
+	Sources []SourceResult
+	NextCursor string // opaque token for the next page; empty on the last page
+}
+
+type Config struct {
+	RequestTimeout time.Duration // 3s, the whole fan-out; per-source deadlines come with AddSource
+}
+
+type Aggregator struct {
+	sources  []source.Source
+	timeouts map[model.Source]time.Duration // per-source deadlines, from AddSource
+	cfg      Config
+	log      *slog.Logger
+	observer Observer // metrics hook; nopObserver unless Builder.Observe installs one
+	flights  singleflight.Group
+}
+
+// Observer sees what the aggregator does, for metrics: each source call's
+// outcome with how long it took, and each request that joined another
+// request's fan-out instead of starting its own. internal/telemetry.Metrics
+// implements it, so the aggregator records metrics without importing
+// telemetry (it depends on model and source only). Declined in the LLD review,
+// kept at implementation for that dependency direction (design decision, 2026-10-17).
+type Observer interface {
+	SourceCall(ctx context.Context, src model.Source, status Status, took time.Duration)
+	Coalesced(ctx context.Context)
+}
+
+// nopObserver records nothing.
+type nopObserver struct{}
+
+func (nopObserver) SourceCall(context.Context, model.Source, Status, time.Duration) {}
+func (nopObserver) Coalesced(context.Context)                                     {}
+
+// Builder assembles an Aggregator one source at a time (builder.go), so wiring
+// adds sources in a loop instead of filling a constructor by hand.
+type Builder struct {
+	cfg      Config
+	log      *slog.Logger
+	observer Observer
+	sources  []source.Source
+	timeouts map[model.Source]time.Duration
+	err      error
+}
+
+func NewBuilder(cfg Config, log *slog.Logger) *Builder {
+	return &amp;Builder{cfg: cfg, log: log, observer: nopObserver{}, timeouts: map[model.Source]time.Duration{}}
+}
+
+// Observe installs the Observer that sees source calls and coalesced requests.
+func (b *Builder) Observe(o Observer) *Builder {
+	b.observer = o
+	return b
+}
+
+// AddSource registers src with its own deadline. A duplicate name or a
+// non-positive timeout is reported by Build.
+func (b *Builder) AddSource(src source.Source, timeout time.Duration) *Builder {
+	_, dup := b.timeouts[src.Name()]
+	switch {
+	case b.err != nil:
+	case dup:
+		b.err = fmt.Errorf(&quot;source %q added twice&quot;, src.Name())
+	case timeout &lt;= 0:
+		b.err = fmt.Errorf(&quot;source %q: timeout must be positive&quot;, src.Name())
+	default:
+		b.sources = append(b.sources, src)
+		b.timeouts[src.Name()] = timeout
+	}
+	return b
+}
+
+// Build returns the Aggregator, with sources in name order so responses list
+// them the same way every time, whatever order they were added in.
+func (b *Builder) Build() (*Aggregator, error) {
+	if b.err != nil {
+		return nil, b.err
+	}
+	if len(b.sources) == 0 {
+		return nil, errors.New(&quot;aggregator: no sources&quot;)
+	}
+	slices.SortFunc(b.sources, func(x, y source.Source) int { return cmp.Compare(x.Name(), y.Name()) })
+	return &amp;Aggregator{sources: b.sources, timeouts: b.timeouts, cfg: b.cfg, log: b.log, observer: b.observer}, nil
+}
+
+// firstPage is the State of a first page: every source from the beginning. With
+// decodeCursor checking that all sources are present, every source always has
+// an entry, so a missing one can only mean a source added since.
+func (a *Aggregator) firstPage(q Query) State {
+	st := State{Query: q, Sources: map[model.Source]SourceState{}}
+	for _, src := range a.sources {
+		st.Sources[src.Name()] = SourceState{Phase: PhaseStart}
+	}
+	return st
+}
+
+// sourceNames lists the configured sources, for decodeCursor's outdated check.
+// (Signature only.)
+func (a *Aggregator) sourceNames() []model.Source
+
+// ListRequest is one call to List: the list to page through, the opaque
+// cursor from a previous Result (empty for the first page), and the limit.
+type ListRequest struct {
+	Query  Query
+	Cursor string
+	Limit  int // 1 to the API's maximum; the handler validates it
+}
+
+// List returns one page: from the beginning without a cursor, from where the
+// cursor left off with one. It is the aggregator's only entry point, so callers
+// pass opaque cursors in and out and never see paging state.
+func (a *Aggregator) List(ctx context.Context, req ListRequest) (Result, error) {
+	st := a.firstPage(req.Query)
+	if req.Cursor != &quot;&quot; {
+		var err error
+		if st, err = decodeCursor(req.Cursor, req.Query, a.sourceNames()); err != nil {
+			return Result{}, err // ErrInvalidCursor or ErrCursorOutdated
+		}
+	}
+	return a.coalesced(ctx, st, req.Limit)
+}
+
+// coalesced returns one page for st. Identical concurrent requests (same
+// query, positions and limit) share one fan-out.
+func (a *Aggregator) coalesced(ctx context.Context, st State, limit int) (Result, error) {
+	ch := a.flights.DoChan(st.flightKey(limit), func() (any, error) {
+		// Detached from the first caller's cancellation (trace values kept),
+		// with its own deadline, so one client hanging up doesn't fail
+		// every caller sharing this flight.
+		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.cfg.RequestTimeout)
+		defer cancel()
+		return a.page(fctx, st, limit), nil
+	})
+	select {
+	case &lt;-ctx.Done():
+		return Result{}, ctx.Err()
+	case r := &lt;-ch:
+		res := r.Val.(Result)
+		if nothingAnswered(st, res.Sources) {
+			su := &amp;SourcesUnavailableError{Sources: res.Sources}
+			if su.Retryable() || st.nothingShown() {
+				// A 502 carries the statuses and no cursor (HLD section 5).
+				return Result{VIN: res.VIN, Sources: res.Sources}, su
+			}
+			// Documents were shown and every remaining source failed for good:
+			// the list is over. A terminal page, not an error (HLD section 4).
+		}
+		return res, nil
+	}
+}
+
+func (a *Aggregator) page(ctx context.Context, st State, limit int) Result {
+	results := make([]SourceResult, len(a.sources))
+	var wg sync.WaitGroup
+	for i, src := range a.sources {
+		ss := st.Sources[src.Name()]
+		switch ss.Phase {
+		case PhaseDone:
+			results[i] = SourceResult{Source: src.Name(), Status: StatusDone}
+			continue
+		case PhaseUnavailable:
+			results[i] = SourceResult{Source: src.Name(), Status: StatusUnavailable}
+			continue
+		}
+		req := st.Query.request(ss.At, limit)
+		wg.Go(func() { results[i] = a.fetchOne(ctx, src, req) }) // own slot, no lock
+	}
+	wg.Wait()
+	docs, next := cut(st, results, limit)
+	res := Result{VIN: st.Query.VIN, Entries: toEntries(docs), Sources: results}
+	if next != nil {
+		res.NextCursor = encodeCursor(*next)
+	}
+	return res
+}
+
+func (a *Aggregator) fetchOne(ctx context.Context, src source.Source, req source.Request) SourceResult {
+	fctx, cancel := context.WithTimeout(ctx, a.timeouts[src.Name()])
+	defer cancel()
+	page, err := src.FetchPage(fctx, req)
+	switch {
+	case err == nil:
+		return SourceResult{Source: src.Name(), Status: StatusOK, Page: page}
+	case errors.Is(err, source.ErrPermanent):
+		a.log.ErrorContext(ctx, &quot;source rejected the request&quot;, &quot;source&quot;, src.Name(), &quot;err&quot;, err)
+		return SourceResult{Source: src.Name(), Status: StatusUnavailable}
+	case errors.Is(err, context.DeadlineExceeded):
+		return SourceResult{Source: src.Name(), Status: StatusTimeout}
+	default:
+		a.log.WarnContext(ctx, &quot;source failed&quot;, &quot;source&quot;, src.Name(), &quot;err&quot;, err)
+		return SourceResult{Source: src.Name(), Status: StatusError}
+	}
+}
+
+// cut interleaves the sources' pages newest first, keeps the first limit
+// documents, and moves each source's position to the last document it had on
+// the page. Documents fetched but cut off come back next time. A transiently
+// failed source keeps its old position, so the next page retries it; a
+// permanently failed one is marked unavailable.
+func cut(st State, results []SourceResult, limit int) ([]model.Document, *State) {
+	var docs []model.Document
+	for _, r := range results {
+		docs = append(docs, r.Page.Docs...)
+	}
+	// Stable sort on date, then source, only: within one source the upstream's
+	// own order (including its ID tie-break) is kept, because that order is
+	// what its position means.
+	slices.SortStableFunc(docs, func(x, y model.Document) int {
+		if c := y.IssuedAt.Compare(x.IssuedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(x.Source, y.Source)
+	})
+	if len(docs) &gt; limit {
+		docs = docs[:limit]
+	}
+
+	next := State{Query: st.Query, Sources: maps.Clone(st.Sources)}
+	returned := map[model.Source]int{}
+	for _, d := range docs {
+		returned[d.Source]++
+		next.Sources[d.Source] = SourceState{Phase: PhaseAfter, At: &amp;source.Position{IssuedAt: d.IssuedAt, ID: d.ID}}
+	}
+	for _, r := range results {
+		switch {
+		case r.Status == StatusUnavailable:
+			next.Sources[r.Source] = SourceState{Phase: PhaseUnavailable}
+		case r.Status != StatusOK:
+			// transient failure, or already done: position unchanged
+		case !r.Page.HasMore &amp;&amp; returned[r.Source] == len(r.Page.Docs):
+			next.Sources[r.Source] = SourceState{Phase: PhaseDone}
+		case returned[r.Source] == 0 &amp;&amp; r.Page.SkipTo != nil:
+			next.Sources[r.Source] = SourceState{Phase: PhaseAfter, At: r.Page.SkipTo} // step past a fully malformed page
+		}
+	}
+	for _, ss := range next.Sources {
+		if ss.Phase != PhaseDone &amp;&amp; ss.Phase != PhaseUnavailable {
+			return docs, &amp;next
+		}
+	}
+	return docs, nil // every source finished
+}
+
+// flightKey identifies identical requests. %+v includes every Query field, so
+// new dimensions join the key without code changes.
+func (s State) flightKey(limit int) string {
+	var b strings.Builder
+	fmt.Fprintf(&amp;b, &quot;%+v|%d&quot;, s.Query, limit)
+	for _, name := range slices.Sorted(maps.Keys(s.Sources)) {
+		ss := s.Sources[name]
+		fmt.Fprintf(&amp;b, &quot;|%s:%s&quot;, name, ss.Phase)
+		if ss.At != nil {
+			fmt.Fprintf(&amp;b, &quot;:%s:%s&quot;, ss.At.IssuedAt.Format(time.RFC3339Nano), ss.At.ID)
+		}
+	}
+	return b.String()
+}
+
+// toEntries maps each document to one entry. Today every entry has one source;
+// the planned checksum index (HLD section 14) would add the other systems
+// holding the same file.
+func toEntries(docs []model.Document) []model.Entry {
+	entries := make([]model.Entry, len(docs))
+	for i, d := range docs {
+		entries[i] = model.Entry{
+			Type: d.Type, Title: d.Title, Summary: d.Summary, IssuedAt: d.IssuedAt,
+			Sources: []model.SourceRef{{Source: d.Source, ID: d.ID, URL: d.URL}},
+		}
+	}
+	return entries
+}
+
+// nothingAnswered is true when no source answered and at least one failed,
+// transiently or permanently (PRD A-05: if every system fails, show an error).
+// A source answering with nothing (404, an empty page) still counts as an answer.
+// A source already done or unavailable when the page started was not asked, so
+// it neither answered nor failed: a cursor in which every source has finished
+// gives an empty last page, not an error.
+func nothingAnswered(st State, results []SourceResult) bool {
+	failed := false
+	for _, r := range results {
+		if prev := st.Sources[r.Source].Phase; prev == PhaseDone || prev == PhaseUnavailable {
+			continue // not asked this page
+		}
+		switch r.Status {
+		case StatusOK:
+			return false
+		case StatusTimeout, StatusError, StatusUnavailable:
+			failed = true
+		}
+	}
+	return failed
+}</code></pre>
+<p><strong>Design notes</strong></p>
+<ul><li><strong>One entry point: <code>List</code>.</strong> The handler passes the query, the raw cursor and the limit, and gets an opaque <code>NextCursor</code> back. First page or resume, decoding and encoding all happen inside; <code>firstPage</code> and the cursor functions are unexported, so no caller can combine them wrongly.</li>
+<li><strong>Paging never touches the token.</strong> It works on <code>State</code>; <code>cursor.go</code> is the only file that knows the token's JSON, so the token format can change without touching paging.</li>
+<li><strong>Sources take a <code>Request</code>, not positional parameters.</strong> A future filter or order is a new field with a zero-value default, mapped once in <code>Query.request</code>; the <code>Source</code> interface, the adapters and the fake sources don't change. An adapter that can't honour a field returns <code>ErrUnsupported</code> (permanent), so a filter is never silently dropped.</li>
+<li><strong>A source's position is the last document returned, not the upstream's next-page token.</strong> Each source is asked for <code>limit</code> documents, but only <code>limit</code> in total survive the cut. Passing the upstream's token through would silently skip whatever was fetched but cut off.</li>
+<li><strong>A position needs both the date and the ID.</strong> Each system orders by date and then ID, so &quot;after this document&quot; compares both. An ID alone fails because IDs don't follow dates (backfilled records, text IDs) and can't place a cursor among same-day ties. Carrying the date also keeps the cursor self-contained: it still works if the anchor document is deleted between pages.</li>
+<li><strong>Never re-sort within a source.</strong> The upstream's order, including its ID tie-break, is what its position means. Re-sorting by our ID string would break it: as text, <code>service:10000</code> sorts before <code>service:9001</code>, while the Service system orders record IDs as numbers. The stable sort compares only date and source.</li>
+<li><strong>A fully malformed upstream page would stall the cursor.</strong> Adapters skip malformed items; if every item on a page was malformed, <code>SkipTo</code> carries the last raw item's position so the cursor moves past it instead of asking for the same page forever.</li>
+<li><strong>Pages can be short.</strong> A failed source contributes nothing, so a page can hold fewer than <code>limit</code> documents. Clients page on <code>next_cursor</code>, not on count.</li>
+<li><strong>A failed page has no cursor.</strong> When nothing answered and a retry may help, or nothing has been shown yet, <code>List</code> returns the per-source statuses and <code>ErrSourcesUnavailable</code> but no <code>NextCursor</code>: the client retries the cursor it already holds (HLD section 5). Only sources asked on this page count as failed; one finished on an earlier page was never called, so a cursor in which every source is already <code>done</code> or <code>unavailable</code> yields an empty last page rather than a 502.</li>
+<li><strong>All-permanent failure after documents were shown is a terminal page.</strong> <code>State.nothingShown</code> is true while every stream is still at <code>start</code>. Once something has been shown, a page where every remaining source fails permanently returns 200 with no documents, those sources <code>unavailable</code> and no cursor, so the client is never left holding a cursor that can only 502 (review finding 6).</li>
+<li><strong>Panics are contained.</strong> Each per-source goroutine and the fan-out itself recover: a panicking source counts as a transient <code>error</code> for this page (retried next page) and is logged with its stack, so one bad adapter can't take the request down. The recovery has to be inside the fan-out because singleflight re-raises a panic in the leader where no middleware can catch it.</li>
+<li><strong>A stalled source ends.</strong> A source that answers ok with an empty page, <code>has_more</code> true and no <code>SkipTo</code> would be asked the same question forever; the aggregator marks it <code>unavailable</code> instead, so the list ends rather than looping.</li>
+<li><strong>Every source gets the full limit, never a share of it.</strong> The newest <code>limit</code> documents may all sit in one source; asking each of N sources for <code>limit / N</code> would push its newer documents onto later pages, behind older ones from other sources. The cost is over-fetch: N × <code>limit</code> fetched to return <code>limit</code> (60 for 20 with three sources), bounded by the max of 100, and the cut-off part is fetched again next page. That's the price of staying stateless.</li>
+<li><strong>WaitGroup, not errgroup.WithContext.</strong> errgroup cancels the shared context on the first error, which would kill the healthy source's call. Each goroutine writes only its own slot, so no lock is needed. <code>wg.Go</code> exists since Go 1.25; the module targets Go 1.27 (<code>go 1.27</code> in <code>go.mod</code>, <code>golang:1.27</code> in the Dockerfile).</li>
+<li><strong>singleflight with a detached context.</strong> Otherwise the first caller's context governs the shared fan-out, and if that client disconnects, every caller in the flight fails. Each caller still stops waiting when its own context ends.</li>
+<li><strong>Context reaches the upstream.</strong> <code>httpjson</code> builds every request with <code>http.NewRequestWithContext</code>, so a deadline or cancellation stops the upstream call, not just our wait for it.</li></ul>
+<h2 id="5-resilience-draft">5. Resilience (draft)</h2>
+<p><code>pkg/resilience</code> is generic and transport-agnostic: <code>Guard[T]</code> protects any call, whether an HTTP request, a gRPC call or a database query. Each transport gets a thin adapter package on top, as with <code>otelhttp</code> and <code>otelgrpc</code>: <code>resiliencehttp.NewTransport</code> today. A gRPC client would get <code>resiliencegrpc</code>, a unary client interceptor built on the same <code>Guard</code>, with its own idea of a failed call (<code>codes.Unavailable</code>, <code>codes.ResourceExhausted</code>); the core doesn't change. Every caller of the Sales or Service client gets retry and a breaker without knowing about them, and adapters and the aggregator contain no resilience code.</p>
+<p>Wiring, outside in, one stack per upstream so each has its own breaker: tracing (<code>otelhttp</code>), then the resilience transport, then a pooled <code>http.Transport</code>. With the breaker outside the retry, one logical call counts as one failure, and an open breaker skips retries entirely.</p>
+<pre><code class="language-go">package resilience
+
+// Policy decides what is worth retrying and what counts against the breaker.
+type Policy struct {
+	MaxRetries int              // extra attempts after the first
+	MinBudget  time.Duration    // deadline that must remain before a retry
+	MaxJitter  time.Duration    // upper bound of the wait before a retry
+	Retryable  func(error) bool // errors worth another attempt
+	Ignore     func(error) bool // errors that say nothing about the callee's health
+	TripAfter  uint32           // consecutive failures that open the breaker
+	Cooldown   time.Duration    // time open before a probe
+	OnState    func(name string, from, to gobreaker.State)
+}
+
+// Guard puts calls returning T behind a circuit breaker and a bounded retry.
+type Guard[T any] struct {
+	cb     *gobreaker.CircuitBreaker[T]
+	policy Policy
+}
+
+func NewGuard[T any](name string, p Policy) *Guard[T] {
+	if p.Retryable == nil {
+		p.Retryable = func(error) bool { return false } // nothing is retried unless the policy says so
+	}
+	return &amp;Guard[T]{policy: p, cb: gobreaker.NewCircuitBreaker[T](gobreaker.Settings{
+		Name:          name,
+		Timeout:       p.Cooldown,
+		ReadyToTrip:   func(c gobreaker.Counts) bool { return c.ConsecutiveFailures &gt;= p.TripAfter },
+		IsSuccessful:  func(err error) bool { return err == nil || (p.Ignore != nil &amp;&amp; p.Ignore(err)) },
+		OnStateChange: p.OnState,
+	})}
+}
+
+// Do runs call through the breaker, retrying inside it.
+func (g *Guard[T]) Do(ctx context.Context, call func(context.Context) (T, error)) (T, error) {
+	return g.cb.Execute(func() (T, error) { return retry(ctx, g.policy, call) })
+}
+
+func retry[T any](ctx context.Context, p Policy, call func(context.Context) (T, error)) (T, error) {
+	v, err := call(ctx)
+	for i := 0; err != nil &amp;&amp; i &lt; p.MaxRetries &amp;&amp; p.Retryable(err) &amp;&amp; hasBudget(ctx, p.MinBudget); i++ {
+		select {
+		case &lt;-time.After(time.Duration(rand.Int64N(int64(p.MaxJitter) + 1))):
+		case &lt;-ctx.Done():
+			var zero T
+			return zero, ctx.Err()
+		}
+		v, err = call(ctx)
+	}
+	return v, err
+}
+
+func hasBudget(ctx context.Context, min time.Duration) bool {
+	deadline, ok := ctx.Deadline()
+	return !ok || time.Until(deadline) &gt; min
+}</code></pre>
+<pre><code class="language-go">package resiliencehttp // a resilience.Guard as an http.RoundTripper
+
+// ErrFailedResponse marks an attempt whose response counted as a failure. It
+// never reaches the caller: after the last attempt the response itself is returned.
+var ErrFailedResponse = errors.New(&quot;failed response&quot;)
+
+// NewTransport puts requests through a breaker and a bounded retry. failed
+// decides which responses count as failures (e.g. 5xx and 429). Only GET and
+// HEAD are retried, so a retry never repeats a change.
+func NewTransport(next http.RoundTripper, name string, p resilience.Policy, failed func(*http.Response) bool) http.RoundTripper {
+	retryable := p.Retryable
+	p.Retryable = func(err error) bool {
+		return errors.Is(err, ErrFailedResponse) || (retryable != nil &amp;&amp; retryable(err))
+	}
+	return &amp;transport{next: next, failed: failed, guard: resilience.NewGuard[*http.Response](name, p)}
+}
+
+type transport struct {
+	next   http.RoundTripper
+	failed func(*http.Response) bool
+	guard  *resilience.Guard[*http.Response]
+}
+
+func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method != http.MethodGet &amp;&amp; req.Method != http.MethodHead {
+		return t.next.RoundTrip(req)
+	}
+	var last *http.Response // the latest failed response, closed if it is retried
+	resp, err := t.guard.Do(req.Context(), func(ctx context.Context) (*http.Response, error) {
+		if last != nil {
+			last.Body.Close()
+			last = nil
+		}
+		r, err := t.next.RoundTrip(req.Clone(ctx))
+		if err == nil &amp;&amp; t.failed(r) {
+			last = r
+			return r, ErrFailedResponse
+		}
+		return r, err
+	})
+	if errors.Is(err, ErrFailedResponse) {
+		return resp, nil // retries spent: hand the failed response to the caller
+	}
+	if last != nil {
+		last.Body.Close() // gave up while waiting to retry
+	}
+	return resp, err
+}</code></pre>
+<p><strong>The upstream policy</strong>, set at wiring:</p>
+<ul><li><strong>Failed responses:</strong> 5xx and 429 count as failures. Other 4xx don't, since an upstream rejecting a request says nothing about its health.</li>
+<li><strong>Retries:</strong> <code>MaxRetries: 1</code>, with <code>MinBudget</code> and <code>MaxJitter</code> from configuration. <code>Retryable</code> adds connection errors to failed responses; context errors and an open breaker are never retried.</li>
+<li><strong>Ignored errors:</strong> <code>context.Canceled</code>, since a client hanging up says nothing about the upstream.</li>
+<li><strong>Breaker:</strong> <code>TripAfter: 5</code>, <code>Cooldown: 30s</code>; <code>OnState</code> feeds the breaker-state metric.</li></ul>
+<h2 id="6-clients-adapters-and-field-mapping">6. Clients, adapters and field mapping</h2>
+<p><strong>Clients</strong> (<code>internal/client/...</code>): one per upstream, built on <code>pkg/httpjson</code>. Each knows its endpoints, query parameters and wire models, and nothing about paging rules or the domain, so other code can call it for raw data.</p>
+<pre><code class="language-go">package httpjson
+
+// StatusError is a non-2xx response.
+type StatusError struct{ Code int }
+
+func (e *StatusError) Error() string { return fmt.Sprintf(&quot;http status %d&quot;, e.Code) }
+
+var (
+	ErrTooLarge = errors.New(&quot;response body over the size limit&quot;)
+	ErrDecode   = errors.New(&quot;response body doesn't decode&quot;)
+)
+
+type Client struct {
+	HTTP     *http.Client // its transport carries tracing and resilience
+	MaxBytes int64
+}
+
+// Get fetches rawURL and decodes a JSON body into T. A non-2xx response returns
+// *StatusError without decoding; a body over MaxBytes returns ErrTooLarge.
+func Get[T any](ctx context.Context, c Client, rawURL string) (T, error) {
+	var zero T
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return zero, err
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return zero, err // transport error, including context and open-breaker errors
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, c.MaxBytes)) // lets the connection be reused
+		return zero, &amp;StatusError{Code: resp.StatusCode}
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, c.MaxBytes+1))
+	if err != nil {
+		return zero, err
+	}
+	if int64(len(body)) &gt; c.MaxBytes {
+		return zero, ErrTooLarge
+	}
+	var v T
+	if err := json.Unmarshal(body, &amp;v); err != nil {
+		return zero, fmt.Errorf(&quot;%w: %w&quot;, ErrDecode, err)
+	}
+	return v, nil
+}</code></pre>
+<pre><code class="language-go">package client // shared by every upstream client
+
+var (
+	ErrNotFound    = errors.New(&quot;upstream: not found&quot;)          // 404
+	ErrRejected    = errors.New(&quot;upstream: request rejected&quot;)   // 400, 401, 403, 422
+	ErrUnavailable = errors.New(&quot;upstream: unavailable&quot;)        // 5xx, 429, connection errors, open breaker
+	ErrTooLarge    = errors.New(&quot;upstream: response too large&quot;) // over the size cap
+	ErrMalformed   = errors.New(&quot;upstream: malformed response&quot;) // body doesn't decode
+)
+
+// rejectedStatuses are the responses that say the request itself is wrong.
+var rejectedStatuses = []int{
+	http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity,
+}
+
+// FromHTTP wraps an httpjson error in the matching sentinel, keeping the
+// original for logs. Context errors pass through unchanged, so deadlines and
+// cancellations stay recognisable.
+func FromHTTP(err error) error {
+	var se *httpjson.StatusError
+	switch {
+	case err == nil, errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return err
+	case errors.As(err, &amp;se) &amp;&amp; se.Code == http.StatusNotFound:
+		return fmt.Errorf(&quot;%w: %w&quot;, ErrNotFound, err)
+	case errors.As(err, &amp;se) &amp;&amp; slices.Contains(rejectedStatuses, se.Code):
+		return fmt.Errorf(&quot;%w: %w&quot;, ErrRejected, err)
+	case errors.Is(err, httpjson.ErrTooLarge):
+		return fmt.Errorf(&quot;%w: %w&quot;, ErrTooLarge, err)
+	case errors.Is(err, httpjson.ErrDecode):
+		return fmt.Errorf(&quot;%w: %w&quot;, ErrMalformed, err)
+	default:
+		return fmt.Errorf(&quot;%w: %w&quot;, ErrUnavailable, err)
+	}
+}</code></pre>
+<pre><code class="language-go">package salesapi // Sales System API client: HTTP and wire models only
+
+// DocumentPage is the Sales System API's response, exactly as it sends it.
+type DocumentPage struct {
+	VehicleVIN string     `json:&quot;vehicleVin&quot;`
+	HasMore    bool       `json:&quot;hasMore&quot;`
+	Documents  []Document `json:&quot;documents&quot;`
+}
+
+type Document struct {
+	DocID       string `json:&quot;docId&quot;`
+	DocType     string `json:&quot;docType&quot;`
+	Title       string `json:&quot;title&quot;`
+	CreatedDate string `json:&quot;createdDate&quot;` // YYYY-MM-DD
+	FileURL     string `json:&quot;fileUrl&quot;`
+	Notes       string `json:&quot;notes,omitempty&quot;`
+	FileSHA256  string `json:&quot;fileSha256,omitempty&quot;`
+}
+
+// Query parameters of the Sales System API.
+const (
+	paramLimit  = &quot;limit&quot;
+	paramBefore = &quot;before&quot;
+	beforeSep   = &quot;|&quot; // before=&lt;date&gt;|&lt;id&gt;
+)
+
+// ListParams pages newest first: by date, then document ID.
+type ListParams struct {
+	Limit      int
+	BeforeDate string // YYYY-MM-DD; empty starts from the newest
+	BeforeID   string
+}
+
+type Client struct {
+	base *url.URL
+	hc   httpjson.Client
+}
+
+// New parses baseURL once, so a bad URL fails at startup, not on the first call.
+func New(baseURL string, hc httpjson.Client) (*Client, error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;sales base URL: %w&quot;, err)
+	}
+	return &amp;Client{base: u, hc: hc}, nil
+}
+
+// ListDocuments returns one page of a vehicle's documents. Errors are client
+// sentinels (client.ErrNotFound, client.ErrRejected, ...), never raw HTTP codes.
+func (c *Client) ListDocuments(ctx context.Context, vin string, p ListParams) (DocumentPage, error) {
+	q := url.Values{paramLimit: {strconv.Itoa(p.Limit)}}
+	if p.BeforeDate != &quot;&quot; {
+		q.Set(paramBefore, p.BeforeDate+beforeSep+p.BeforeID)
+	}
+	u := c.base.JoinPath(&quot;api/v1/vehicles&quot;, vin, &quot;documents&quot;)
+	u.RawQuery = q.Encode()
+	page, err := httpjson.Get[DocumentPage](ctx, c.hc, u.String())
+	return page, client.FromHTTP(err)
+}</code></pre>
+<p>The Service client has the same shape: <code>ListRecords(ctx, vin, ListParams{Limit, BeforeTS, BeforeID})</code> returning <code>RecordPage</code>.</p>
+<p><strong>Adapters</strong> (<code>internal/aggregator/source/...</code>): turn a client into a <code>Source</code>. They translate positions into the client's paging parameters, map client errors through <code>errmap</code>, and map wire models to the domain (<code>mapping.go</code>).</p>
+<pre><code class="language-go">package errmap // maps client sentinel errors to Source semantics, shared by adapters
+
+// FromClient handles a failed paging call. Not found means the source has
+// nothing for this VIN: an empty, final page. Rejected, too large and
+// malformed wrap source.ErrPermanent, since the same request would fail the
+// same way. Everything else (unavailable, context errors) is transient.
+func FromClient(err error) (source.Page, error) {
+	switch {
+	case errors.Is(err, client.ErrNotFound):
+		return source.Page{}, nil
+	case errors.Is(err, client.ErrRejected), errors.Is(err, client.ErrTooLarge), errors.Is(err, client.ErrMalformed):
+		return source.Page{}, fmt.Errorf(&quot;%w: %w&quot;, source.ErrPermanent, err)
+	default:
+		return source.Page{}, err
+	}
+}</code></pre>
+<pre><code class="language-go">package sales // adapter: Sales client -&gt; source.Source
+
+// Lister is what the adapter needs from the Sales client: one page of
+// documents. Declared here, on the consumer's side, so mapping tests use a
+// fake returning wire values; *salesapi.Client satisfies it.
+type Lister interface {
+	ListDocuments(ctx context.Context, vin string, p salesapi.ListParams) (salesapi.DocumentPage, error)
+}
+
+type Adapter struct{ c Lister }
+
+func New(c Lister) *Adapter { return &amp;Adapter{c: c} }
+
+// Name is this source's name in config, cursors and responses.
+const Name model.Source = &quot;sales&quot;
+
+// Build creates the Sales client and its adapter: the one call wiring needs.
+func Build(baseURL string, hc httpjson.Client) (source.Source, error) {
+	c, err := salesapi.New(baseURL, hc)
+	if err != nil {
+		return nil, err
+	}
+	return New(c), nil
+}
+
+func (a *Adapter) Name() model.Source { return Name }
+
+func (a *Adapter) FetchPage(ctx context.Context, req source.Request) (source.Page, error) {
+	p := salesapi.ListParams{Limit: req.Limit}
+	if req.After != nil {
+		p.BeforeDate = req.After.IssuedAt.Format(time.DateOnly)
+		p.BeforeID = model.UpstreamID(Name, req.After.ID)
+	}
+	resp, err := a.c.ListDocuments(ctx, string(req.VIN), p)
+	if err != nil {
+		return errmap.FromClient(err)
+	}
+	return toPage(req.VIN, resp) // mapping.go: wire -&gt; model, skipping malformed items
+}</code></pre>
+<h3 id="sales-system-api-mapping">Sales System API mapping</h3>
+<div class="tablewrap"><table><tr><th>Sales field</th><th>Document field</th><th class="nw">Rule</th></tr>
+<tr><td class="nw"><code>docId</code></td><td class="nw"><code>id</code></td><td><code>model.DocumentID</code>: <code>sales:S-1001</code></td></tr>
+<tr><td class="nw"><code>docType</code></td><td class="nw"><code>type</code></td><td><code>model.CanonicalType</code>: <code>PURCHASE_AGREEMENT</code> becomes <code>purchase_agreement</code>; unknown values become <code>other</code></td></tr>
+<tr><td class="nw"><code>title</code></td><td class="nw"><code>title</code></td><td>As is</td></tr>
+<tr><td class="nw"><code>createdDate</code></td><td class="nw"><code>issued_at</code></td><td><code>YYYY-MM-DD</code>, parsed as midnight UTC</td></tr>
+<tr><td class="nw"><code>fileUrl</code></td><td class="nw"><code>url</code></td><td>As is</td></tr>
+<tr><td><code>notes</code> (optional)</td><td class="nw"><code>summary</code></td><td>Trimmed; empty means no summary</td></tr>
+<tr><td><code>fileSha256</code> (optional)</td><td class="nw"><code>checksum</code></td><td><code>model.Checksum</code>: a 64-character hex digest, lower-cased; anything else dropped. Unused in v1, kept for the planned de-duplication (HLD section 14)</td></tr>
+<tr><td><code>vehicleVin</code> (envelope)</td><td class="nw">none</td><td>Must equal the requested VIN, otherwise the whole response is rejected as <code>ErrPermanent</code></td></tr>
+<tr><td><code>hasMore</code> (envelope)</td><td class="nw"><code>Page.HasMore</code></td><td>As is</td></tr></table></div>
+<h3 id="service-system-api-mapping">Service System API mapping</h3>
+<div class="tablewrap"><table><tr><th>Service field</th><th>Document field</th><th class="nw">Rule</th></tr>
+<tr><td><code>record_id</code> (integer)</td><td class="nw"><code>id</code></td><td><code>model.DocumentID</code>: <code>service:9001</code></td></tr>
+<tr><td class="nw"><code>category</code></td><td class="nw"><code>type</code></td><td><code>model.CanonicalType</code>: already snake_case; unknown values become <code>other</code></td></tr>
+<tr><td class="nw"><code>description</code></td><td class="nw"><code>title</code></td><td>As is</td></tr>
+<tr><td><code>created_at</code> (epoch seconds)</td><td class="nw"><code>issued_at</code></td><td><code>time.Unix(v, 0).UTC()</code></td></tr>
+<tr><td><code>download_link</code></td><td class="nw"><code>url</code></td><td>As is</td></tr>
+<tr><td><code>work_notes</code> (optional)</td><td class="nw"><code>summary</code></td><td>Trimmed; empty means no summary</td></tr>
+<tr><td><code>file_sha256</code> (optional)</td><td class="nw"><code>checksum</code></td><td><code>model.Checksum</code>: a 64-character hex digest, lower-cased; anything else dropped. Unused in v1, kept for the planned de-duplication (HLD section 14)</td></tr>
+<tr><td><code>has_more</code> (envelope)</td><td class="nw"><code>Page.HasMore</code></td><td>As is</td></tr></table></div>
+<p><strong>Shared rules</strong></p>
+<ul><li><strong>Paging (Sales):</strong> the adapter sets <code>BeforeDate</code> (<code>YYYY-MM-DD</code>) and <code>BeforeID</code> (the upstream ID, via <code>model.UpstreamID</code>); the client sends them as <code>before=2024-03-02|S-1002</code>.</li>
+<li><strong>Paging (Service):</strong> the adapter sets <code>BeforeTS</code> (epoch seconds) and <code>BeforeID</code> (the upstream ID, via <code>model.UpstreamID</code>); the client sends <code>before_ts</code> and <code>before_id</code>.</li>
+<li><strong>Order:</strong> adapters return documents in the upstream's order and never re-sort them.</li>
+<li><strong>Errors, layer by layer:</strong><ul><li>the client turns HTTP outcomes into its sentinels (<code>client.FromHTTP</code>): 404 is <code>ErrNotFound</code>; 400, 401, 403, 422 are <code>ErrRejected</code>; over 1 MB is <code>ErrTooLarge</code>; bad JSON is <code>ErrMalformed</code>; 5xx and 429 after the transport's retry, connection errors and an open breaker are <code>ErrUnavailable</code>;</li>
+<li>the adapter maps those (<code>errmap.FromClient</code>): not found is an empty, final page (<code>done</code>); rejected, too large and malformed are <code>ErrPermanent</code>; unavailable and context errors are transient.</li></ul></li>
+<li><strong>Malformed items:</strong> an item missing its ID, date or URL is skipped and counted in a metric. If every item on a page is malformed, the adapter sets <code>SkipTo</code> to the last raw item's position.</li>
+<li><strong>Body limit:</strong> <code>httpjson</code> reads at most 1 MB (<code>sources.max_body_bytes</code>). Beyond it the client reports <code>client.ErrTooLarge</code>, which the adapter treats as permanent: the same request would return it again.</li>
+<li><strong>Lookup key:</strong> both upstreams are queried by VIN directly (HLD D-10). A system that needed an ID lookup first would do it inside its own adapter.</li></ul>
+<h2 id="7-http-layer">7. HTTP layer</h2>
+<ul><li><strong>Router and middleware (Gin), outermost first:</strong> request logging (slog, also records the duration metric; outside recovery so it sees the status a panic ends with, and a hang-up as 499) → <code>gin.CustomRecovery</code> (a panic becomes <code>internal_error</code>, logged with its stack) → OpenTelemetry (<code>otelgin</code>) → <code>rememberSpan</code>, a tiny middleware that keeps the span context for the logger (otelgin doesn't share its request with outer middleware) and, when that context is valid and sampled, sets the <code>X-Trace-Id</code> response header to the W3C trace ID (HLD D-14) → CORS (<code>gin-contrib/cors</code>, allow-list from config, answers preflight requests, exposes <code>X-Trace-Id</code> to browser callers) → handler. Health probes are logged at debug and, being untraced, carry no <code>X-Trace-Id</code>.</li>
+<li><strong><code>X-Trace-Id</code>:</strong> on every traced response, success or error, set before the handler runs so <code>writeError</code> and the 200 path need no header code of their own. 32 lower-case hex characters, the same value as <code>trace_id</code> in the request log and the span in Tempo; random, so no PII. Body shapes are unchanged; <code>api/openapi.yaml</code> declares the header on each response. <code>otelsetup</code> builds the tracer provider with <code>AlwaysSample</code>, so an inbound <code>traceparent</code> with the sampled flag off still gets an exported span under the caller's trace ID; <code>rememberSpan</code> checks <code>IsSampled</code> anyway, so the header can never name an unexported trace (design decision, 2026-10-17).</li>
+<li><strong>Handler flow:</strong><ol><li>Parse the VIN with <code>model.ParseVIN</code> (a domain rule: trim, upper-case, check), then bind the query string with Gin (<code>ShouldBindQuery</code> into <code>dto.ListQuery</code>: <code>limit</code> defaults to 20 and must be 1 to 100; an empty <code>limit=</code> counts as absent, so it takes the default). Both happen before the service is called.</li>
+<li>One call: <code>agg.List(ctx, aggregator.ListRequest{Query, Cursor, Limit})</code>. The service decides first page or resume, decodes and encodes the cursor, and returns its own errors (<code>ErrInvalidCursor</code>, <code>ErrCursorOutdated</code>, <code>ErrSourcesUnavailable</code>), which go to <code>writeError</code>.</li>
+<li>Otherwise write 200 through <code>dto</code>; <code>next_cursor</code> is the result's <code>NextCursor</code>, or null when it's empty.</li></ol></li>
+<li><strong>Graceful shutdown:</strong> the Gin engine is the <code>http.Server</code> handler; <code>Shutdown</code> on SIGTERM with a 10s grace period.</li></ul>
+<pre><code class="language-go">// ListDocuments serves GET /v1/vehicles/:vin/documents.
+func (h *Handler) ListDocuments(c *gin.Context) {
+	vin, err := model.ParseVIN(c.Param(&quot;vin&quot;)) // normalises and checks: a domain rule, not a binding tag
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	var q dto.ListQuery
+	if err := c.ShouldBindQuery(&amp;q); err != nil {
+		h.writeError(c, fmt.Errorf(&quot;%w: %w&quot;, dto.ErrInvalidLimit, err))
+		return
+	}
+	res, err := h.agg.List(c.Request.Context(), aggregator.ListRequest{
+		Query:  aggregator.Query{VIN: vin},
+		Cursor: q.Cursor,
+		Limit:  q.Limit,
+	})
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.NewDocumentPage(res))
+}</code></pre>
+<h3 id="error-flow-end-to-end">Error flow, end to end</h3>
+<p>Each layer maps only the errors of the layer below it, so no layer inspects another's status codes.</p>
+<figure class="diagram"><div class="diagram-in" style="min-width:1800px"><svg role="img" id="lld-1" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 1928.16px; background-color: transparent;" viewBox="4 4 1928.15625 136" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#lld-1{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#lld-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#lld-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#lld-1 .error-icon{fill:#552222;}#lld-1 .error-text{fill:#552222;stroke:#552222;}#lld-1 .edge-thickness-normal{stroke-width:1px;}#lld-1 .edge-thickness-thick{stroke-width:3.5px;}#lld-1 .edge-pattern-solid{stroke-dasharray:0;}#lld-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#lld-1 .edge-pattern-dashed{stroke-dasharray:3;}#lld-1 .edge-pattern-dotted{stroke-dasharray:2;}#lld-1 .marker{fill:#666;stroke:#666;}#lld-1 .marker.cross{stroke:#666;}#lld-1 svg{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:16px;}#lld-1 p{margin:0;}#lld-1 .label{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#000000;}#lld-1 .cluster-label text{fill:#333;}#lld-1 .cluster-label span{color:#333;}#lld-1 .cluster-label span p{background-color:transparent;}#lld-1 .label text,#lld-1 span{fill:#000000;color:#000000;}#lld-1 .node rect,#lld-1 .node circle,#lld-1 .node ellipse,#lld-1 .node polygon,#lld-1 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#lld-1 .rough-node .label text,#lld-1 .node .label text,#lld-1 .image-shape .label,#lld-1 .icon-shape .label{text-anchor:middle;}#lld-1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#lld-1 .rough-node .label,#lld-1 .node .label,#lld-1 .image-shape .label,#lld-1 .icon-shape .label{text-align:center;}#lld-1 .node.clickable{cursor:pointer;}#lld-1 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#lld-1 .arrowheadPath{fill:#333333;}#lld-1 .edgePaths .path{stroke:#666;stroke-width:1px;}#lld-1 .flowchart-link{stroke:#666;fill:none;}#lld-1 .edgeLabel{background-color:white;text-align:center;}#lld-1 .edgeLabel p{background-color:white;}#lld-1 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#lld-1 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#lld-1 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#lld-1 .cluster text{fill:#333;}#lld-1 .cluster span{color:#333;}#lld-1 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#lld-1 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#lld-1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#lld-1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#lld-1 rect.text{fill:none;stroke-width:0;}#lld-1 .icon-shape,#lld-1 .image-shape{background-color:white;text-align:center;}#lld-1 .icon-shape p,#lld-1 .image-shape p{background-color:white;padding:2px;}#lld-1 .icon-shape .label rect,#lld-1 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#lld-1 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#lld-1 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#lld-1 .node .neo-node{stroke:#999;}#lld-1 [data-look="neo"].node rect,#lld-1 [data-look="neo"].cluster rect,#lld-1 [data-look="neo"].node polygon{stroke:url(#lld-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#lld-1 [data-look="neo"].swimlane.cluster rect{filter:none;}#lld-1 [data-look="neo"].node path{stroke:url(#lld-1-gradient);stroke-width:1px;}#lld-1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#lld-1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#lld-1 [data-look="neo"].node circle{stroke:url(#lld-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#lld-1 [data-look="neo"].node circle .state-start{fill:#000000;}#lld-1 [data-look="neo"].icon-shape .icon{fill:url(#lld-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#lld-1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#lld-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#lld-1 :root{--mermaid-font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}</style><g><marker id="lld-1_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="lld-1_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="lld-1_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edges edgePaths"><path d="M164,72L355.390625,72" id="lld-1-L_U_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 187.390625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_U_C_0" data-points="W3sieCI6MTY0LCJ5Ijo3Mn0seyJ4IjozNTkuMzkwNjI1LCJ5Ijo3Mn1d" data-look="neo" marker-end="url(#lld-1_flowchart-v2-pointEnd-margin)"/><path d="M511.390625,72L718.71875,72" id="lld-1-L_C_S_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 203.328125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_S_0" data-points="W3sieCI6NTExLjM5MDYyNSwieSI6NzJ9LHsieCI6NzIyLjcxODc1LCJ5Ijo3Mn1d" data-look="neo" marker-end="url(#lld-1_flowchart-v2-pointEnd-margin)"/><path d="M874.71875,72L1015.453125,72" id="lld-1-L_S_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 136.734375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_S_A_0" data-points="W3sieCI6ODc0LjcxODc1LCJ5Ijo3Mn0seyJ4IjoxMDE5LjQ1MzEyNSwieSI6NzJ9XQ==" data-look="neo" marker-end="url(#lld-1_flowchart-v2-pointEnd-margin)"/><path d="M1171.453125,72L1372.15625,72" id="lld-1-L_A_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 196.703125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_R_0" data-points="W3sieCI6MTE3MS40NTMxMjUsInkiOjcyfSx7IngiOjEzNzYuMTU2MjUsInkiOjcyfV0=" data-look="neo" marker-end="url(#lld-1_flowchart-v2-pointEnd-margin)"/><path d="M1563.953125,72L1768.15625,72" id="lld-1-L_R_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 200.203125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_R_H_0" data-points="W3sieCI6MTU2My45NTMxMjUsInkiOjcyfSx7IngiOjE3NzIuMTU2MjUsInkiOjcyfV0=" data-look="neo" marker-end="url(#lld-1_flowchart-v2-pointEnd-margin)"/></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(261.6953125, 71.5)"><g class="label" data-id="L_U_C_0" transform="translate(-57.6953125, -12)"><foreignObject width="115.390625" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>client.FromHTTP</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(617.0546875, 71.5)"><g class="label" data-id="L_C_S_0" transform="translate(-65.6640625, -12)"><foreignObject width="131.328125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>errmap.FromClient</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(947.0859375, 71.5)"><g class="label" data-id="L_S_A_0" transform="translate(-32.3671875, -12)"><foreignObject width="64.734375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>fetchOne</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1273.8046875, 71.5)"><g class="label" data-id="L_A_R_0" transform="translate(-62.3515625, -12)"><foreignObject width="124.703125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>nothingAnswered</p></span></div></foreignObject></g></g><g class="edgeLabel" transform="translate(1668.0546875, 71.5)"><g class="label" data-id="L_R_H_0" transform="translate(-64.1015625, -12)"><foreignObject width="128.203125" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"><p>Handler.writeError</p></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="lld-1-flowchart-U-0" data-look="neo" transform="translate(88, 72)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"/><g class="label" style="" transform="translate(-60, -24)"><rect/><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Upstream response</p></span></div></foreignObject></g></g><g class="node default" id="lld-1-flowchart-C-1" data-look="neo" transform="translate(435.390625, 72)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"/><g class="label" style="" transform="translate(-60, -12)"><rect/><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Client sentinel</p></span></div></foreignObject></g></g><g class="node default" id="lld-1-flowchart-S-3" data-look="neo" transform="translate(798.71875, 72)"><rect class="basic label-container" style="" x="-76" y="-60" width="152" height="120"/><g class="label" style="" transform="translate(-60, -48)"><rect/><foreignObject width="120" height="96"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Source result:<br />page, ErrPermanent or transient</p></span></div></foreignObject></g></g><g class="node default" id="lld-1-flowchart-A-5" data-look="neo" transform="translate(1095.453125, 72)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"/><g class="label" style="" transform="translate(-60, -24)"><rect/><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Per-source Status</p></span></div></foreignObject></g></g><g class="node default" id="lld-1-flowchart-R-7" data-look="neo" transform="translate(1470.0546875, 72)"><rect class="basic label-container" style="" x="-93.8984375" y="-36" width="187.796875" height="72"/><g class="label" style="" transform="translate(-77.8984375, -24)"><rect/><foreignObject width="155.796875" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>Result, or ErrSourcesUnavailable</p></span></div></foreignObject></g></g><g class="node default" id="lld-1-flowchart-H-9" data-look="neo" transform="translate(1848.15625, 72)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"/><g class="label" style="" transform="translate(-60, -12)"><rect/><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>HTTP response</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="lld-1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="lld-1-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="lld-1-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"/><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"/></linearGradient></svg></div></figure>
+<div class="tablewrap"><table><tr><th>Upstream outcome</th><th>Client (<code>FromHTTP</code>)</th><th>Adapter (<code>errmap</code>)</th><th>Aggregator status</th><th class="nw">API</th></tr>
+<tr><td>2xx with a valid body</td><td>wire page</td><td class="nw"><code>Page</code></td><td class="nw"><code>ok</code></td><td>200 with its documents</td></tr>
+<tr><td class="nw">404</td><td class="nw"><code>ErrNotFound</code></td><td>empty, final <code>Page</code></td><td><code>ok</code>, then <code>done</code></td><td class="nw">200</td></tr>
+<tr><td>400, 401, 403, 422</td><td class="nw"><code>ErrRejected</code></td><td class="nw"><code>ErrPermanent</code></td><td class="nw"><code>unavailable</code></td><td>200 partial, source named; never called again. 502 if nothing answered and nothing shown yet; a terminal 200 once documents have been shown</td></tr>
+<tr><td>Body over 1 MB</td><td class="nw"><code>ErrTooLarge</code></td><td class="nw"><code>ErrPermanent</code></td><td class="nw"><code>unavailable</code></td><td class="nw">same</td></tr>
+<tr><td>Body that doesn't decode</td><td class="nw"><code>ErrMalformed</code></td><td class="nw"><code>ErrPermanent</code></td><td class="nw"><code>unavailable</code></td><td class="nw">same</td></tr>
+<tr><td>Valid body for another VIN</td><td>wire page</td><td><code>ErrPermanent</code> (mapping check)</td><td class="nw"><code>unavailable</code></td><td class="nw">same</td></tr>
+<tr><td>A <code>Request</code> field the source can't honour</td><td>not called</td><td><code>ErrUnsupported</code> (wraps <code>ErrPermanent</code>)</td><td class="nw"><code>unavailable</code></td><td class="nw">same</td></tr>
+<tr><td>5xx or 429, after the transport's one retry</td><td><code>ErrUnavailable</code></td><td>transient, as is</td><td class="nw"><code>error</code></td><td>200 partial, retried next page; 502 if nothing answered</td></tr>
+<tr><td>Connection error, or the breaker is open</td><td><code>ErrUnavailable</code></td><td class="nw">transient</td><td class="nw"><code>error</code></td><td class="nw">same</td></tr>
+<tr><td>The 2s source deadline passes</td><td><code>context.DeadlineExceeded</code>, unchanged</td><td class="nw">transient</td><td class="nw"><code>timeout</code></td><td class="nw">same</td></tr>
+<tr><td>The caller disconnects</td><td>not affected (the flight is detached)</td><td>not affected</td><td>not affected</td><td><code>Page</code> returns <code>context.Canceled</code>; nothing is written</td></tr></table></div>
+<p>Request errors: an invalid VIN or limit is a 400 from the handler before the service is called; an invalid or outdated cursor is a 400 from <code>List</code>'s own errors (below).</p>
+<h3 id="error-mapping-handler">Error mapping (handler)</h3>
+<p>Every failure goes through one method, <code>Handler.writeError</code>, so each error has exactly one status, code and message. <code>Handler</code> holds the injected aggregator and logger; nothing uses the global <code>slog</code> logger.</p>
+<div class="tablewrap"><table><tr><th class="nw">Error</th><th class="nw">Status</th><th class="nw">Code</th><th class="nw">Message</th></tr>
+<tr><td><code>model.ErrInvalidVIN</code></td><td class="nw">400</td><td class="nw"><code>invalid_vin</code></td><td>From the error: which rule failed (length, a forbidden letter)</td></tr>
+<tr><td><code>dto.ErrInvalidLimit</code></td><td class="nw">400</td><td><code>invalid_limit</code></td><td>Fixed: an integer from 1 to 100 (the validator's own text never reaches the client)</td></tr>
+<tr><td><code>aggregator.ErrInvalidCursor</code></td><td class="nw">400</td><td><code>invalid_cursor</code></td><td>Fixed; never echoes the cursor</td></tr>
+<tr><td><code>aggregator.ErrCursorOutdated</code></td><td class="nw">400</td><td><code>cursor_outdated</code></td><td>Start again from the first page</td></tr>
+<tr><td><code>aggregator.ErrSourcesUnavailable</code></td><td class="nw">502</td><td><code>sources_unavailable</code></td><td>Fixed, plus the per-source statuses: &quot;retry with the same cursor&quot; if any failure was transient, &quot;retrying won't help&quot; if all were permanent</td></tr>
+<tr><td>Unknown route (<code>NoRoute</code>)</td><td class="nw">404</td><td class="nw"><code>not_found</code></td><td class="nw">Fixed</td></tr>
+<tr><td>Client cancelled (<code>context.Canceled</code>)</td><td>499 (logs and metrics only)</td><td class="nw">none</td><td>Nothing is sent; the request is recorded as 499 (nginx's client-closed-request) in the request log and the duration metric, so a hang-up never counts as a 200</td></tr>
+<tr><td>Panic, or anything not listed</td><td class="nw">500</td><td><code>internal_error</code></td><td>Fixed; details only in the (redacted) logs</td></tr></table></div>
+<pre><code class="language-go">package api
+
+// errorMap maps known errors to responses; anything else is a 500.
+var errorMap = []struct {
+	target  error
+	status  int
+	code    dto.ErrorCode
+	message string // fixed message; empty means the error's own, which describes the request
+}{
+	{model.ErrInvalidVIN, http.StatusBadRequest, dto.CodeInvalidVIN, &quot;&quot;},
+	{dto.ErrInvalidLimit, http.StatusBadRequest, dto.CodeInvalidLimit, &quot;limit must be an integer from 1 to 100&quot;},
+	{aggregator.ErrInvalidCursor, http.StatusBadRequest, dto.CodeInvalidCursor, &quot;invalid cursor&quot;},
+	{aggregator.ErrCursorOutdated, http.StatusBadRequest, dto.CodeCursorOutdated, &quot;a source was added; start again from the first page&quot;},
+}
+
+// writeError turns err into a JSON error response. A 4xx message is the
+// mapping's fixed text, or the error's own when it describes the request (an
+// invalid VIN names the rule it broke); binding and cursor errors always get
+// fixed text. 5xx messages are fixed, so internals never leak.
+func (h *Handler) writeError(c *gin.Context, err error) {
+	if errors.Is(err, context.Canceled) {
+		c.AbortWithStatus(StatusClientClosedRequest) // no one to answer; the 499 is for logs and metrics only
+		return
+	}
+	var su *aggregator.SourcesUnavailableError
+	if errors.As(err, &amp;su) {
+		msg := &quot;no source can answer; retrying won't help&quot;
+		if su.Retryable() {
+			msg = &quot;no source answered; retry with the same cursor&quot;
+		}
+		c.AbortWithStatusJSON(http.StatusBadGateway, dto.ErrorResponse{
+			Error:   dto.ErrorDetail{Code: dto.CodeSourcesUnavailable, Message: msg},
+			Sources: dto.Statuses(su.Sources),
+		})
+		return
+	}
+	for _, m := range errorMap {
+		if errors.Is(err, m.target) {
+			c.AbortWithStatusJSON(m.status, dto.ErrorResponse{Error: dto.ErrorDetail{Code: m.code, Message: cmp.Or(m.message, err.Error())}})
+			return
+		}
+	}
+	h.log.ErrorContext(c.Request.Context(), &quot;unhandled error&quot;, &quot;err&quot;, err)
+	c.AbortWithStatusJSON(http.StatusInternalServerError,
+		dto.ErrorResponse{Error: dto.ErrorDetail{Code: dto.CodeInternal, Message: &quot;internal error&quot;}})
+}</code></pre>
+<ul><li><strong>Errors flow up, mapping happens once.</strong> Handlers return as soon as something fails and call <code>writeError</code>; no handler picks a status code itself. Even the 502 comes from the aggregator's <code>ErrSourcesUnavailable</code>.</li>
+<li><strong>Sentinels by layer:</strong> <code>model.ErrInvalidVIN</code> (domain); <code>dto.ErrInvalidLimit</code> (request); <code>aggregator.ErrSourcesUnavailable</code>, <code>ErrInvalidCursor</code> and <code>ErrCursorOutdated</code> (service); <code>source.ErrPermanent</code> (port); <code>client.Err*</code> (clients). The handler only ever sees the first three groups.</li>
+<li><strong>Adding an error</strong> means adding one row to <code>errorMap</code> and one to the table above; nothing else changes.</li>
+<li><strong>The invalid-cursor message is fixed,</strong> because the cursor's wording could reflect its contents, and the cursor carries the VIN.</li></ul>
+<h2 id="8-redaction-logs-and-traces">8. Redaction (logs and traces)</h2>
+<p><code>pkg/redact</code> is generic and isolated: it redacts key/value fields and free text by whatever rules it is given, and imports no logging or tracing library. Using it on logs or traces is the caller's choice, through opt-in adapter packages: <code>redactslog</code> (an <code>slog.Handler</code>) and <code>redactotel</code> (a span exporter). The PII policy is configuration, kept in <code>internal/telemetry/pii.go</code>.</p>
+<ul><li><strong>Setup:</strong> <code>otelsetup.Setup(ctx, Options{ServiceName, Version, WrapLog, Exporters})</code> builds the trace, metric and log providers and the root slog handler; <code>WrapLog</code> is the hook redaction plugs into. <code>Exporters</code> is nil in production, meaning all three signals go to OTLP (endpoint from the standard <code>OTEL_*</code> variables); tests pass in-memory exporters, and a nil field inside a provided set discards that signal. Export failures are logged at debug through the service's own logger, not OpenTelemetry's stderr handler. <code>Shutdown</code> flushes all three on exit.</li>
+<li><strong>How it plugs in:</strong> <code>redactslog.Handler</code> implements <code>slog.Handler</code> and wraps the next handler, the way HTTP middleware wraps an <code>http.Handler</code>. <code>Handle</code> rewrites each record before passing it on; <code>WithAttrs</code> redacts <code>logger.With(...)</code> attributes once, up front; <code>Enabled</code> and <code>WithGroup</code> defer to the next handler.</li>
+<li><strong>Where (this service's choice):</strong> <code>redactslog.NewHandler</code> wraps the root <code>slog.Handler</code> once, before records fan out to stdout and the OpenTelemetry bridge, so both sinks get the redacted record. <code>redactotel.NewExporter</code> wraps the span exporter, so every attribute is redacted on export, including ones added after a span started.</li>
+<li><strong>Switch:</strong> <code>telemetry.redact.enabled</code> (default true), read at start. When it's off, the wiring skips both wraps entirely, so there's no cost and no half-redacted state, and the service logs a warning at start so it can't go unnoticed. The switch lives in the wiring, so <code>pkg/redact</code> stays generic.</li></ul>
+<pre><code class="language-go">package redact // rule-driven redaction of fields and free text; imports no logging or tracing library
+
+type Action int
+
+const (
+	Keep Action = iota
+	Drop // remove the field
+	Mask // replace the value with asterisks, leaving its last KeepLast characters
+)
+
+type Rule struct {
+	Action   Action
+	KeepLast int // for Mask: trailing characters left visible; 0 masks everything
+}
+
+type Config struct {
+	Rules           map[string]Rule  // by field key
+	Patterns        []*regexp.Regexp // matches in free text and string values are masked
+	PatternKeepLast int              // trailing characters left visible in each match
+}
+
+// Redactor applies a Config. It is safe for concurrent use.
+type Redactor struct{ cfg Config }
+
+func New(cfg Config) *Redactor { return &amp;Redactor{cfg: cfg} }
+
+// Rule returns the rule for key, or Keep.
+func (r *Redactor) Rule(key string) Rule { return r.cfg.Rules[key] }
+
+// Field redacts one value: it returns the new value, and keep=false when the
+// field must be dropped. Kept values are still scrubbed of pattern matches.
+// Keys never change, so callers never track renamed fields.
+func (r *Redactor) Field(key, value string) (string, bool) {
+	switch rule := r.Rule(key); rule.Action {
+	case Drop:
+		return &quot;&quot;, false
+	case Mask:
+		return mask(value, rule.KeepLast), true
+	}
+	return r.Text(value), true
+}
+
+// Text masks every pattern match in free text, such as a log message.
+func (r *Redactor) Text(s string) string {
+	for _, p := range r.cfg.Patterns {
+		s = p.ReplaceAllStringFunc(s, func(m string) string { return mask(m, r.cfg.PatternKeepLast) })
+	}
+	return s
+}
+
+// mask replaces all but the last keep runes with '*'. A value no longer than
+// keep is masked entirely, so a short value is never shown in full.
+func mask(s string, keep int) string {
+	rs := []rune(s)
+	if keep &gt;= len(rs) {
+		keep = 0
+	}
+	n := len(rs) - keep
+	return strings.Repeat(&quot;*&quot;, n) + string(rs[n:])
+}</code></pre>
+<pre><code class="language-go">package redactslog // opt-in: a redact.Redactor as an slog.Handler
+
+// Handler redacts every record, and attributes added with With, before
+// passing them on.
+type Handler struct {
+	next slog.Handler
+	red  *redact.Redactor
+}
+
+func NewHandler(next slog.Handler, red *redact.Redactor) *Handler {
+	return &amp;Handler{next: next, red: red}
+}
+
+// Enabled defers to next: redaction never changes what gets logged.
+func (h *Handler) Enabled(ctx context.Context, l slog.Level) bool { return h.next.Enabled(ctx, l) }
+
+// WithGroup passes the group on; attributes inside it are still redacted by
+// their own key.
+func (h *Handler) WithGroup(name string) slog.Handler {
+	return &amp;Handler{next: h.next.WithGroup(name), red: h.red}
+}
+
+func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
+	out := slog.NewRecord(r.Time, r.Level, h.red.Text(r.Message), r.PC)
+	r.Attrs(func(a slog.Attr) bool {
+		if a, keep := h.attr(a); keep {
+			out.AddAttrs(a)
+		}
+		return true
+	})
+	return h.next.Handle(ctx, out)
+}
+
+// WithAttrs must redact too: attributes added with logger.With(...) never
+// pass through Handle's record.
+func (h *Handler) WithAttrs(as []slog.Attr) slog.Handler {
+	var kept []slog.Attr
+	for _, a := range as {
+		if a, keep := h.attr(a); keep {
+			kept = append(kept, a)
+		}
+	}
+	return &amp;Handler{next: h.next.WithAttrs(kept), red: h.red}
+}
+
+// attr returns the redacted attribute, or keep=false to drop it.
+func (h *Handler) attr(a slog.Attr) (slog.Attr, bool) {
+	a.Value = a.Value.Resolve() // a LogValuer becomes its value first
+	if a.Value.Kind() == slog.KindGroup {
+		var kept []slog.Attr
+		for _, g := range a.Value.Group() {
+			if g, keep := h.attr(g); keep {
+				kept = append(kept, g)
+			}
+		}
+		return slog.Attr{Key: a.Key, Value: slog.GroupValue(kept...)}, true
+	}
+	if !textual(a.Value) &amp;&amp; h.red.Rule(a.Key).Action == redact.Keep {
+		return a, true // a number, bool, duration or time can't carry text
+	}
+	value, keep := h.red.Field(a.Key, a.Value.String())
+	if !keep {
+		return slog.Attr{}, false
+	}
+	return slog.String(a.Key, value), true
+}
+
+// textual reports whether v can carry free text: strings, and anything that
+// isn't a plain scalar (errors, Stringers, structs), which is rendered as text
+// and scrubbed. An error's text often holds a full upstream URL, VIN included.
+func textual(v slog.Value) bool {
+	switch v.Kind() {
+	case slog.KindInt64, slog.KindUint64, slog.KindFloat64, slog.KindBool, slog.KindDuration, slog.KindTime:
+		return false
+	}
+	return true
+}</code></pre>
+<pre><code class="language-go">package redactotel // opt-in: a redact.Redactor as an OpenTelemetry span exporter
+
+// NewExporter redacts the attributes of every span, and of its events, and the
+// span's status description (which can carry an error's text), just before
+// export, so attributes added after a span started are covered too. Spans are
+// wrapped, not copied: only Attributes, Events and Status are overridden.
+// (Signature only.)
+func NewExporter(next sdktrace.SpanExporter, r *redact.Redactor) sdktrace.SpanExporter</code></pre>
+<p><strong>The PII policy</strong> (<code>internal/telemetry/pii.go</code>):</p>
+<div class="tablewrap"><table><tr><th class="nw">Key</th><th class="nw">Rule</th></tr>
+<tr><td class="nw"><code>vin</code></td><td><code>Mask</code>, keeping the last 4 characters (<code>*************2788</code>): enough to tell vehicles apart while debugging, with no secret key to manage</td></tr>
+<tr><td><code>path</code>, <code>url</code>, <code>url.path</code>, <code>url.full</code></td><td><code>Drop</code>; request logs carry <code>route</code> (Gin's <code>c.FullPath()</code>, e.g. <code>/v1/vehicles/:vin/documents</code>) instead</td></tr>
+<tr><td><code>query</code>, <code>url.query</code>, <code>cursor</code></td><td><code>Drop</code> (the cursor encodes the VIN)</td></tr>
+<tr><td><code>title</code>, <code>summary</code>, <code>notes</code>, <code>work_notes</code>, <code>body</code></td><td class="nw"><code>Drop</code></td></tr></table></div>
+<ul><li><strong>Pattern:</strong> <code>(?i)\b[A-HJ-NPR-Z0-9]{17}\b</code>, VIN-shaped tokens in messages and string values, masked the same way (last 4 kept). It may over-redact the odd 17-character token; that's the safe direction.</li>
+<li><strong>Not redacted:</strong> API responses, since the caller is assumed authorised (PRD A-08).</li></ul>
+<p><strong>Design notes</strong></p>
+<ul><li><strong>WithAttrs, groups and error values are the easy places to leak.</strong> Attributes attached with <code>logger.With(&quot;vin&quot;, v)</code> go through <code>WithAttrs</code>, not <code>Handle</code>; nested groups need recursion; and an error's text often carries a full upstream URL, VIN included (<code>*url.Error</code>), so non-scalar values are rendered and scrubbed. All three are covered by tests.</li>
+<li><strong>Messages are constant; data goes in attributes.</strong> Rules work by key, so they can't see inside a message; only patterns can, and only for shapes they know (a VIN, not a customer's name). <code>sloglint</code>'s static-message check enforces constant messages in CI.</li>
+<li><strong>Mask, not hash.</strong> A keyed hash would let one VIN be followed across requests, but needs a secret key to create, rotate and share. Masking needs no key; within a request the trace ID ties the log lines together, and the last 4 characters usually tell vehicles apart.</li>
+<li><strong>The core never imports a logging or tracing library.</strong> Code that only needs to redact a map, an audit record or an error message uses <code>redact</code> alone; the adapters are separate packages it opts into.</li>
+<li><strong>One wrap, at the root.</strong> Redacting before the fan-out means a new sink can't skip the rules.</li>
+<li><strong>The policy is data.</strong> Changing what counts as PII means editing <code>pii.go</code>, not the redaction code.</li></ul>
+<h2 id="9-configuration">9. Configuration</h2>
+<p><strong>Generic loader (pkg/configload).</strong> A typed config from one YAML document, with environment overrides on top, validated at start. It knows nothing about this service. viper parses the YAML; the loader applies environment overrides itself by walking the schema type, because viper's own env binding cannot replace a whole map key deterministically.</p>
+<pre><code class="language-go">package configload
+
+type Options struct {
+	Path      string // the file Load reads; LoadFrom ignores it
+	EnvPrefix string // &quot;DOCVIEWER&quot;: server.addr is overridden by DOCVIEWER_SERVER_ADDR
+	Strict    bool   // fail on a YAML key that no field names
+}
+
+// Validator is implemented by a schema with rules no validate tag can express.
+type Validator interface{ Validate() error }
+
+func Load[T any](opts Options) (*T, error)
+func LoadFrom[T any](r io.Reader, source string, opts Options) (*T, error)
+
+// ResolvePath picks $CONFIG_PATH, else dir/config.local.yaml (git-ignored),
+// else dir/config.yaml (committed defaults).
+func ResolvePath(dir string) string
+
+// LoadDotEnv sets variables from each file that exists, never overriding one
+// already set, so real environment variables win over a .env file. A missing
+// file is skipped. Call it before ResolvePath and Load.
+func LoadDotEnv(paths ...string) error</code></pre>
+<ul><li><strong>Every schema key is bound to its env name,</strong> so a key the YAML omits can still be set from the environment, and an empty variable can blank a value.</li>
+<li><strong>envprefix:</strong> <code>envprefix:&quot;NAME&quot;</code> on a field gives its subtree exactly <code>NAME</code> (or <code>NAME_&lt;path&gt;</code>), with no service prefix, for a secret shared by several services.</li>
+<li><strong>Validation:</strong> <code>validate:</code> struct tags first, with errors named by YAML key, then the schema's <code>Validate</code>. Messages never echo string values, so secrets don't reach logs.</li>
+<li><strong>Maps</strong> can be set from the environment as <code>k=v,k2=v2</code> or a JSON object.</li>
+<li><strong>Precedence, lowest to highest:</strong> the YAML file, then a <code>.env</code> file, then real environment variables. <code>LoadDotEnv</code> never overrides a variable that is already set, which is what puts real ones on top.</li></ul>
+<p><strong>The service's schema (internal/config).</strong> Sections with tags, plus the rules tags can't express:</p>
+<pre><code class="language-go">package config
+
+type Config struct {
+	Server     Server     `mapstructure:&quot;server&quot;`
+	Sources    Sources    `mapstructure:&quot;sources&quot;`
+	Resilience Resilience `mapstructure:&quot;resilience&quot;`
+	Telemetry  Telemetry  `mapstructure:&quot;telemetry&quot;`
+}
+
+type Upstream struct {
+	BaseURL string        `mapstructure:&quot;base_url&quot; validate:&quot;required,url&quot;`
+	Timeout time.Duration `mapstructure:&quot;timeout&quot; validate:&quot;gt=0&quot;`
+}
+
+type Sources struct {
+	RequestTimeout time.Duration       `mapstructure:&quot;request_timeout&quot; validate:&quot;gt=0&quot;`
+	MaxBodyBytes   int64               `mapstructure:&quot;max_body_bytes&quot; validate:&quot;gt=0&quot;`
+	Upstreams      map[string]Upstream `mapstructure:&quot;upstreams&quot; validate:&quot;required,min=1,dive&quot;` // by source name
+}
+
+type Telemetry struct {
+	LogLevel   string `mapstructure:&quot;log_level&quot; validate:&quot;oneof=debug info warn error&quot;`
+	Redact     Redact `mapstructure:&quot;redact&quot;`
+}
+
+type Redact struct {
+	Enabled bool `mapstructure:&quot;enabled&quot;` // true in configs/config.yaml
+}
+
+// Server and Resilience follow the same pattern (see the table below).
+
+// Validate holds the rules tags can't express.
+func (c *Config) Validate() error {
+	for _, up := range c.Sources.Upstreams {
+		if up.Timeout &gt;= c.Sources.RequestTimeout {
+			return errors.New(&quot;each source timeout must be below sources.request_timeout&quot;)
+		}
+		if c.Resilience.MinBudget &gt;= up.Timeout {
+			return errors.New(&quot;resilience.min_budget must be below each source timeout&quot;)
+		}
+	}
+	return nil
+}</code></pre>
+<p>Defaults live in <code>configs/config.yaml</code>; every key can be overridden as <code>DOCVIEWER_</code> plus the key path in upper case.</p>
+<pre><code class="language-yaml"># configs/config.yaml: committed defaults for local runs and docker-compose.
+# Any key can be overridden as DOCVIEWER_&lt;KEY_PATH&gt;, e.g. DOCVIEWER_SERVER_ADDR.
+# Nothing here is secret. A value that ever is would come from the environment
+# or from config.local.yaml, which is git-ignored.
+
+server:
+  addr: &quot;:8080&quot;
+  cors_origins: []          # empty: no browser origin may call the API
+  shutdown_grace: 10s
+
+sources:
+  request_timeout: 3s       # the whole fan-out (PRD A-07)
+  max_body_bytes: 1048576   # 1 MB; a larger response is a permanent failure
+  upstreams:                # one entry per source; each name needs an adapter
+    sales:
+      base_url: http://mock-sales:8081
+      timeout: 2s
+    service:
+      base_url: http://mock-service:8082
+      timeout: 2s
+
+resilience:
+  max_retries: 1
+  min_budget: 500ms
+  max_jitter: 100ms
+  trip_after: 5
+  cooldown: 30s
+
+telemetry:
+  log_level: info
+  redact:
+    enabled: true</code></pre>
+<p><strong><code>.env.example</code></strong> (committed) lists every override, commented out. Copy it to <code>.env</code> (git-ignored) and uncomment what you need; the service loads it at start, and docker-compose passes it to the container with an optional <code>env_file</code>.</p>
+<pre><code class="language-bash"># .env.example: copy to .env (git-ignored) and uncomment what you need.
+# Precedence: configs/config.yaml &lt; .env &lt; real environment variables.
+
+# Which YAML file to load (default: configs/config.local.yaml if present, else config.yaml)
+# CONFIG_PATH=configs/config.yaml
+
+# DOCVIEWER_SERVER_ADDR=:8080
+# DOCVIEWER_SERVER_CORS_ORIGINS=http://localhost:5173
+# DOCVIEWER_SERVER_SHUTDOWN_GRACE=10s
+
+# DOCVIEWER_SOURCES_REQUEST_TIMEOUT=3s
+# DOCVIEWER_SOURCES_MAX_BODY_BYTES=1048576
+# A map is set as a whole, as JSON, e.g. to run against mocks on localhost:
+# DOCVIEWER_SOURCES_UPSTREAMS={&quot;sales&quot;:{&quot;base_url&quot;:&quot;http://localhost:8081&quot;,&quot;timeout&quot;:&quot;2s&quot;},&quot;service&quot;:{&quot;base_url&quot;:&quot;http://localhost:8082&quot;,&quot;timeout&quot;:&quot;2s&quot;}}
+
+# DOCVIEWER_RESILIENCE_MAX_RETRIES=1
+# DOCVIEWER_RESILIENCE_TRIP_AFTER=5
+# DOCVIEWER_RESILIENCE_COOLDOWN=30s
+
+# DOCVIEWER_TELEMETRY_LOG_LEVEL=debug
+# DOCVIEWER_TELEMETRY_REDACT_ENABLED=false   # local debugging only; logs a warning
+
+# Read by the OpenTelemetry SDK, not by our config schema
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318</code></pre>
+<div class="tablewrap"><table><tr><th class="nw">Key</th><th class="nw">Default</th><th class="nw">Meaning</th></tr>
+<tr><td class="nw"><code>server.addr</code></td><td class="nw"><code>:8080</code></td><td>Listen address</td></tr>
+<tr><td><code>server.cors_origins</code></td><td class="nw">empty</td><td>Origins allowed to call the API from a browser (comma-separated from the env)</td></tr>
+<tr><td><code>server.shutdown_grace</code></td><td class="nw"><code>10s</code></td><td>Time to drain in-flight requests on SIGTERM</td></tr>
+<tr><td><code>sources.request_timeout</code></td><td class="nw"><code>3s</code></td><td>Deadline for the whole fan-out</td></tr>
+<tr><td><code>sources.max_body_bytes</code></td><td><code>1048576</code> (1 MB)</td><td>Largest upstream response read; anything larger is a permanent failure</td></tr>
+<tr><td><code>sources.upstreams.{name}.base_url</code></td><td><code>sales</code>: <code>http://mock-sales:8081</code>; <code>service</code>: <code>http://mock-service:8082</code></td><td>Upstream base URL; each name must have an adapter in the source registry</td></tr>
+<tr><td><code>sources.upstreams.{name}.timeout</code></td><td class="nw"><code>2s</code></td><td>Deadline per source call; must be below <code>request_timeout</code></td></tr>
+<tr><td><code>resilience.max_retries</code></td><td class="nw"><code>1</code></td><td>Extra attempts after the first</td></tr>
+<tr><td><code>resilience.min_budget</code>, <code>resilience.max_jitter</code></td><td><code>500ms</code>, <code>100ms</code></td><td>Deadline needed before a retry, and the longest wait before it</td></tr>
+<tr><td><code>resilience.trip_after</code>, <code>resilience.cooldown</code></td><td><code>5</code>, <code>30s</code></td><td>Consecutive failures that open the breaker, and time open before a probe</td></tr>
+<tr><td><code>telemetry.log_level</code></td><td class="nw"><code>info</code></td><td>slog level</td></tr>
+<tr><td><code>telemetry.redact.enabled</code></td><td class="nw"><code>true</code></td><td>Redact PII in logs and traces (section 8); when false, the logger and tracer are not wrapped and a warning is logged at start</td></tr></table></div>
+<p><code>sources.upstreams</code> is a map, so a new source needs no schema change; from the environment it is set as a whole, as a JSON object (<code>DOCVIEWER_SOURCES_UPSTREAMS</code>). Page size isn't in this schema: the default (20) and maximum (100) are part of the API contract, fixed in <code>dto.ListQuery</code>'s binding tags and the OpenAPI spec. The OTLP endpoint isn't either: the OpenTelemetry SDK reads its standard <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> (<code>http://lgtm:4318</code> in docker-compose). The mock servers load their own small schema the same way, with prefixes <code>MOCK_SALES</code> and <code>MOCK_SERVICE</code>:</p>
+<pre><code class="language-yaml"># configs/mock-sales.yaml (mock-service.yaml is the same, on :8082)
+server:
+  addr: &quot;:8081&quot;
+public_base_url: http://localhost:8081   # used in document links, which the browser opens</code></pre>
+<h2 id="10-mock-systems-test-harness">10. Mock systems (test harness)</h2>
+<p>Not part of the architecture: the mocks only have to return realistic data when called, following the contracts in HLD section 5.</p>
+<ul><li><code>mock-sales</code> on :8081 and <code>mock-service</code> on :8082. Each loads its fixture file into memory on start, sorted per VIN newest first, and serves keyset pages in its own schema (HLD section 5), using its own response structs rather than the clients' wire models.</li>
+<li><strong>Keyset paging in memory:</strong></li></ul>
+<pre><code class="language-go">package mock
+
+// Key is a record's place in newest-first order.
+type Key struct {
+	At time.Time
+	ID string
+}
+
+// Store holds one mock system's records per VIN, sorted newest first:
+// date descending, then ID descending, with IDs compared by cmpID
+// (as strings for Sales, as numbers for Service). It is generic over the
+// record type, so each mock keeps its own response struct.
+type Store[T any] struct {
+	byVIN map[string][]T
+	key   func(T) Key
+	cmpID func(a, b string) int
+}
+
+// Page returns up to limit records for vin that come after `after`
+// (nil: from the newest), and whether more remain.
+func (s *Store[T]) Page(vin string, after *Key, limit int) ([]T, bool) {
+	recs := s.byVIN[vin]
+	start := 0
+	if after != nil {
+		start = sort.Search(len(recs), func(i int) bool { return s.older(s.key(recs[i]), *after) })
+	}
+	end := min(start+limit, len(recs))
+	return recs[start:end], end &lt; len(recs)
+}
+
+// older reports whether k comes strictly after a in newest-first order.
+func (s *Store[T]) older(k, a Key) bool {
+	if !k.At.Equal(a.At) {
+		return k.At.Before(a.At)
+	}
+	return s.cmpID(k.ID, a.ID) &lt; 0
+}</code></pre>
+<ul><li><strong>Fixture VINs:</strong> <code>1M8GDM9AXKP042788</code> with documents in both systems, <code>WVWZZZ1JZXW000002</code> only in Sales, <code>JH4KA7561PC000003</code> only in Service, <code>5YJ3E1EA7KF000004</code> with 8 Sales documents and 120 Service records spanning many pages (including several documents on the same date and numeric IDs 9998 to 10001, to exercise tie-breaks and numeric ordering), and <code>1HGCM82633A000005</code> in neither. Most Service records carry <code>work_notes</code>; only a few Sales documents carry <code>notes</code>. A few files appear in both systems with matching checksums (fixed values in the fixtures).</li>
+<li><strong>Files:</strong> every document link points at <code>/files/{id}.pdf</code> on the mock itself, which serves one small placeholder PDF. Links are built from <code>public_base_url</code> (e.g. <code>http://localhost:8081</code>): the browser opens them, not the service, so the container-internal hostname would not resolve.</li>
+<li><strong>Fault controls:</strong> <code>POST /admin/faults</code> with a body such as <code>{&quot;latency_ms&quot;: 2500, &quot;error_rate&quot;: 0.5, &quot;hang&quot;: false}</code>, or <code>{&quot;status&quot;: 403}</code> to make every call fail permanently; <code>DELETE /admin/faults</code> resets. Environment variables set the startup defaults. This lets the demo push one system into failure live, without a restart.</li></ul>
+<h2 id="11-bootstrap-and-wiring">11. Bootstrap and wiring</h2>
+<p>Each entry point wires only what it needs. The HTTP API's dependencies live with it, in <code>internal/handler/api/dependencies.go</code>; a future gRPC server or queue consumer would get its own <code>dependencies.go</code> next to its handler. Constructors live in their own packages (<code>salesapi.New</code>, <code>sales.Build</code>, <code>aggregator.NewBuilder</code>), so two entry points needing the same pieces call the same constructors instead of copying code.</p>
+<p><strong>Adding a source touches no existing logic:</strong> write its client and adapter packages (the adapter exports <code>Name</code> and <code>Build</code>), add one line to <code>sourceBuilders</code>, and one entry under <code>sources.upstreams</code> in the YAML. The wiring loop gives its client the tracing and resilience stack, and the builder checks it. A source configured without an adapter fails startup; an adapter not configured is simply not wired.</p>
+<p><strong>Bootstrap</strong> (<code>cmd/docviewer/main.go</code>), in order:</p>
+<ol><li>Load <code>.env</code> if present (<code>configload.LoadDotEnv(&quot;.env&quot;)</code>), then config: <code>configload.Load[config.Config](configload.Options{Path: configload.ResolvePath(&quot;configs&quot;), EnvPrefix: &quot;DOCVIEWER&quot;, Strict: true})</code>. Strict, so a misspelt key fails instead of being silently ignored. Invalid config exits 1 before anything starts; the loader's errors never echo secrets.</li>
+<li>Set up telemetry (<code>pkg/otelsetup</code>, with the redaction hook), so everything after it logs and traces.</li>
+<li><code>api.NewDependencies(cfg, tel)</code> builds the HTTP API's graph.</li>
+<li><code>api.NewServer(cfg.Server, deps)</code> builds the Gin router, middleware and routes inside an <code>http.Server</code>.</li>
+<li>Serve until SIGINT or SIGTERM (<code>signal.NotifyContext</code>), then shut down in reverse.</li></ol>
+<pre><code class="language-go">package api
+
+// Lister is what the handlers need from the aggregator: one page per call.
+// Declared here, on the consumer's side, so handler and error-mapping tests
+// run against a fake; *aggregator.Aggregator satisfies it.
+type Lister interface {
+	List(ctx context.Context, req aggregator.ListRequest) (aggregator.Result, error)
+}
+
+// Dependencies is everything the HTTP handlers use, and nothing else.
+// Telemetry carries the instruments and providers NewServer installs (otelgin
+// and the metrics-recording request logger); tests build real telemetry over
+// in-memory exporters through the same constructor, so production code has
+// no nil checks.
+type Dependencies struct {
+	Aggregator Lister
+	Telemetry  *telemetry.Telemetry
+	Log        *slog.Logger
+}
+
+// sourceBuilder builds one source (its client and adapter) from its config.
+type sourceBuilder func(baseURL string, hc httpjson.Client) (source.Source, error)
+
+// sourceBuilders is the one list a new source is added to. Each adapter
+// package provides its Name and Build; nothing else in the wiring changes.
+var sourceBuilders = map[model.Source]sourceBuilder{
+	sales.Name:   sales.Build,
+	service.Name: service.Build,
+}
+
+// NewDependencies builds the HTTP API's graph from configuration: one HTTP
+// stack, client and adapter per configured source, then the aggregator.
+func NewDependencies(cfg config.Config, tel *telemetry.Telemetry) (*Dependencies, error) {
+	b := aggregator.NewBuilder(aggregator.Config{RequestTimeout: cfg.Sources.RequestTimeout}, tel.Logger()).Observe(tel.Metrics())
+	for name, up := range cfg.Sources.Upstreams {
+		build, ok := sourceBuilders[model.Source(name)]
+		if !ok {
+			return nil, fmt.Errorf(&quot;source %q is configured but has no adapter&quot;, name)
+		}
+		hc := httpjson.Client{HTTP: upstreamHTTP(name, cfg.Resilience, tel), MaxBytes: cfg.Sources.MaxBodyBytes}
+		src, err := build(up.BaseURL, hc)
+		if err != nil {
+			return nil, fmt.Errorf(&quot;source %q: %w&quot;, name, err)
+		}
+		b.AddSource(src, up.Timeout)
+	}
+	agg, err := b.Build()
+	if err != nil {
+		return nil, err
+	}
+	return &amp;Dependencies{Aggregator: agg, Log: tel.Logger()}, nil
+}
+
+// upstreamHTTP is one upstream's client stack: tracing, then resilience with
+// that upstream's own breaker, then a pooled transport.
+func upstreamHTTP(name string, r config.Resilience, tel *telemetry.Telemetry) *http.Client {
+	base := http.DefaultTransport.(*http.Transport).Clone()
+	guarded := resiliencehttp.NewTransport(base, name, upstreamPolicy(r, tel), failedResponse) // policy from section 5
+	return &amp;http.Client{Transport: otelhttp.NewTransport(guarded)}
+}</code></pre>
+<p><strong>Shutdown</strong>, the reverse of start:</p>
+<ol><li>Readiness turns false, so a load balancer stops sending traffic.</li>
+<li><code>http.Server.Shutdown</code> drains in-flight requests, for up to <code>server.shutdown_grace</code>.</li>
+<li>Telemetry flushes spans, metrics and logs.</li>
+<li>Exit 0, or 1 if any step failed.</li></ol>
+<h2 id="12-test-plan">12. Test plan</h2>
+<p><strong>Strategy: table-driven tests throughout.</strong> Each test is a table of cases (name, input, expected result) run as subtests with <code>t.Run</code>, so adding a case means adding a row, and a failure names the case. Three layers work together:</p>
+<ul><li><strong>Acceptance tests from the PRD:</strong> each acceptance criterion (AC-01 to AC-12) is a row in an end-to-end table, named after its ID, so every requirement has a test that says which one it proves.</li>
+<li><strong>Unit tests</strong> per package, with fakes for their dependencies.</li>
+<li><strong>End-to-end tests:</strong> the service built as in production, against both mocks in process.</li></ul>
+<p><strong>Coverage target: at least 80%</strong> of statements in <code>internal/</code> and <code>pkg/</code>, checked by <code>make cover</code>, which fails below it. <code>cmd/</code> (wiring only, exercised by the end-to-end tests) and generated code (<code>stringer</code>) are excluded. Coverage is a floor, not the goal: the acceptance rows say what is actually proven.</p>
+<p><strong>Rule: no test logic in production code.</strong> No test-only flags, branches, hooks or exported helpers in non-test files. Tests reach what they need through the seams production already has:</p>
+<ul><li>interfaces the code uses anyway (fake <code>source.Source</code>s for the aggregator), constructors, and <code>httptest</code> servers for clients;</li>
+<li><code>_test.go</code> files in the same package for unexported code, with <code>export_test.go</code> when an external test needs an internal;</li>
+<li><code>testing/synctest</code> for time, so production code needs no clock abstraction just to be tested;</li>
+<li>the mocks, a separate test harness the service never imports.</li></ul>
+<div class="tablewrap"><table><tr><th class="nw">Area</th><th class="nw">Cases</th><th class="nw">How</th></tr>
+<tr><td>Acceptance criteria</td><td>AC-01 to AC-12, one row each, named by its ID: VIN validation, paging, partial and total failure, empty results, permanent source failures, opening files</td><td>End-to-end table test</td></tr>
+<tr><td>VIN parsing</td><td>Lengths, I/O/Q, lowercase, spaces, symbols, non-ASCII</td><td>Table tests</td></tr>
+<tr><td class="nw">Config</td><td><code>pkg/configload</code> with a made-up schema: YAML plus env overrides, keys the YAML omits, empty values, <code>envprefix</code>, strict mode, tag and <code>Validate</code> errors without echoed secrets; <code>LoadDotEnv</code> never overrides a variable already set and skips a missing file. The service schema: <code>configs/config.yaml</code> loads, and a source timeout at or above the request timeout is rejected</td><td>Generic tests in <code>pkg/</code>, schema tests in <code>internal/config</code></td></tr>
+<tr><td class="nw">Wiring</td><td><code>Builder</code>: no sources, a duplicate name and a non-positive timeout are errors; sources come out in name order whatever order they were added in. <code>NewDependencies</code>: a configured source with no adapter fails startup</td><td>Table tests</td></tr>
+<tr><td>HTTP JSON</td><td><code>pkg/httpjson</code>: decodes a 2xx body; returns <code>StatusError</code> without decoding; <code>ErrTooLarge</code> over the cap; drains error bodies; honours context cancellation</td><td><code>httptest</code> servers</td></tr>
+<tr><td class="nw">Clients</td><td>Each client builds the right path and query (<code>before</code> for Sales, <code>before_ts</code> and <code>before_id</code> for Service) and decodes its wire model. <code>FromHTTP</code> turns each HTTP outcome into the right client sentinel, keeps the original for logs, and lets context errors through unchanged</td><td><code>httptest</code> servers</td></tr>
+<tr><td class="nw">Adapters</td><td>Every field rule; client sentinels through <code>errmap</code> (not found is done; rejected, too large and malformed are permanent; unavailable and context errors are transient); unknown types; malformed items including a fully malformed page; positions turned into the right paging parameters; VIN mismatch; summary and checksum present and absent</td><td>Fake clients returning wire values</td></tr>
+<tr><td class="nw">Contracts</td><td>Each mock's response for a fixture VIN encodes to the golden JSON in <code>testdata/contracts/</code>, and each client decodes the same file to the expected wire values, so the two sides can't drift apart silently</td><td>Golden files</td></tr>
+<tr><td class="nw">Cursor</td><td><code>List</code> without a cursor starts every source from the beginning, and with one resumes where it left off. A <code>State</code> survives a round trip through the token; strict decoding rejects bad base64 or JSON, an unknown version, unknown fields, unknown states and malformed keys; a query mismatch (another VIN) is invalid; a missing source is outdated; unknown sources are dropped</td><td>Table tests</td></tr>
+<tr><td>Paging correctness</td><td>Walking every page for a VIN returns exactly the full sorted list: nothing skipped, nothing repeated. Covers same-date ties across and within sources, numeric Service IDs, and page sizes 1, 2 and 20. A source with nothing on the first page stays <code>PhaseStart</code>, and the next cursor is not outdated</td><td>Fake sources over in-memory sorted lists</td></tr>
+<tr><td>Partial failure</td><td>A transient failure on page 2: page 2 has the other's documents, the failed source's position is unchanged, and its documents arrive on later pages. A permanent failure, including <code>ErrUnsupported</code>, marks the source unavailable and paging ends without it; 404 marks it done. Nothing answering returns <code>ErrSourcesUnavailable</code> with the per-source statuses and no next state, whether the failures were transient (retryable) or all permanent (not retryable); a source answering with nothing still counts as an answer. Finished sources are not called</td><td>Fake sources</td></tr>
+<tr><td class="nw">Parallelism</td><td>Two sources taking 300ms each finish in 300ms total, not 600ms</td><td><code>testing/synctest</code>: virtual time makes the assertion exact and the test instant</td></tr>
+<tr><td class="nw">Coalescing</td><td>N concurrent requests for the same page call each source once; one caller cancelling does not fail the others; a different query or position gets its own flight</td><td>Counting fake sources</td></tr>
+<tr><td class="nw">Resilience</td><td><code>Guard</code> with a fake call: retries only what <code>Retryable</code> allows and only with budget; the breaker opens after <code>TripAfter</code> failures; ignored errors don't count. <code>resiliencehttp.NewTransport</code> against an <code>httptest</code> server: a 503 is retried once and then succeeds; after retries the failed response reaches the caller; POST is never retried; an open breaker fails fast; 4xx don't count; no response body is left open</td><td>Generic tests in <code>pkg/</code></td></tr>
+<tr><td class="nw">Redaction</td><td><code>pkg/redact</code> with made-up rules: <code>Field</code> for Drop and Mask (including a <code>KeepLast</code> longer than the value, which masks everything), and <code>Text</code> masking, with no logging library involved. <code>redactslog</code>: the message, record attributes, <code>With</code> attributes, groups, <code>LogValuer</code>s, and an error whose text contains a VIN; scalars pass through unchanged. <code>redactotel</code>: span and event attributes at export, including ones set after start. The PII policy: VIN masked to its last 4; path, query, cursor and document fields dropped. With <code>telemetry.redact.enabled</code> off, nothing is wrapped and a warning is logged</td><td>Generic tests in <code>pkg/</code>, policy tests in <code>internal/telemetry</code></td></tr>
+<tr><td>Telemetry setup</td><td><code>pkg/otelsetup</code> against an in-memory exporter: spans, metrics and logs arrive; the <code>WrapLog</code> hook sees every record; <code>Shutdown</code> flushes</td><td>Generic tests in <code>pkg/</code></td></tr>
+<tr><td>Mock store</td><td>In-memory keyset paging returns the right pages and <code>hasMore</code>, including same-date ties and numeric Service IDs</td><td>Table tests</td></tr>
+<tr><td>API mapping</td><td><code>dto</code> maps entries, statuses and the next cursor; the JSON shape matches the OpenAPI spec. <code>ListQuery</code> binding: an absent <code>limit</code> gives 20; non-integers, 0 and 101 are <code>invalid_limit</code> with the fixed message</td><td>Table tests + spec check</td></tr>
+<tr><td>Error mapping</td><td>Each mapped error gives its status, code and body; an unknown error and a panic give a 500 with the fixed message; a cancelled request writes nothing; an unknown route gives <code>not_found</code>; no message echoes the raw cursor or a full VIN</td><td>Table tests on <code>writeError</code> and handler tests; <code>X-Trace-Id</code> present and well-formed on 200, 400, 502 and 500, matching the span's trace ID, exposed through CORS, absent on the health probes; with <code>traceparent</code> arriving sampled-off, the span is still exported and the header carries the caller's trace ID (<code>otelsetup</code> always samples)</td></tr>
+<tr><td>End to end</td><td>200 complete, 200 partial, 200 empty, last page with null <code>next_cursor</code>, 400 for bad VIN, limit or cursor, 502</td><td>The service built with <code>api.NewDependencies</code> and <code>api.NewServer</code>, as in production, against both mocks in process</td></tr></table></div>
+<p>Everything runs under <code>go test -race</code>.</p>
+<h2 id="13-implementation-order">13. Implementation order</h2>
+<p>The order to write the code in, not compile order (Go works that out from the imports). It runs bottom-up along the dependency graph in section 2, so each step builds only on packages that already exist and pass their tests, and each step is a small, reviewable unit of work for the coding agent.</p>
+<ol><li><code>pkg/configload</code> and the service schema, then the <code>model</code> package and VIN tests.</li>
+<li><code>pkg/httpjson</code>, the shared client sentinels, then both clients with their tests.</li>
+<li>Mock servers with in-memory fixtures and keyset paging, plus their tests and the contract fixtures.</li>
+<li>The <code>source</code> port, <code>errmap</code>, and both adapters with mapping tests.</li>
+<li>The aggregator (<code>State</code>, paging, partial failure, parallelism, coalescing) with fake sources, then <code>cursor.go</code>.</li>
+<li>HTTP layer with <code>dto</code>, <code>dependencies.go</code> and <code>server.go</code>, the <code>main.go</code> bootstrap, the OpenAPI spec and end-to-end tests.</li>
+<li><code>pkg/resilience</code> (<code>Guard</code>), then <code>resiliencehttp</code> (<code>NewTransport</code>), wired into each client's <code>http.Client</code>.</li>
+<li><code>pkg/otelsetup</code>, <code>pkg/redact</code> with its two adapters, the PII policy, the service's metrics, docker-compose with the Grafana stack, and the dashboard.</li>
+<li>README and cURL examples.</li></ol>
+</main>
+<footer>Design documents for docviewer, written before the code and kept in step with it. Code: <a href="https://github.com/zranitm/docviewer">github.com/zranitm/docviewer</a>.</footer>
+</body>
+</html>

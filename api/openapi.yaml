@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: Unified Document Viewer API
+  version: 1.0.0
+  description: |
+    One list of a vehicle's documents from the Sales and Service systems,
+    newest first, paged with an opaque cursor. Each document names the system
+    it came from; opening it opens the file in that system.
+servers:
+  - url: http://localhost:8080
+paths:
+  /v1/vehicles/{vin}/documents:
+    get:
+      summary: One page of consolidated documents for a VIN
+      operationId: listDocuments
+      parameters:
+        - name: vin
+          in: path
+          required: true
+          description: 17 letters and digits, no I, O or Q; case and surrounding spaces are normalised.
+          schema:
+            type: string
+            example: 1M8GDM9AXKP042788
+        - name: limit
+          in: query
+          required: false
+          description: Page size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          description: The previous page's next_cursor. Omit for the first page.
+          schema:
+            type: string
+      responses:
+        "200":
+          headers:
+            X-Trace-Id:
+              $ref: "#/components/headers/TraceID"
+          description: At least one source answered, even with nothing; sources gives each one's status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPage"
+        "400":
+          headers:
+            X-Trace-Id:
+              $ref: "#/components/headers/TraceID"
+          description: invalid_vin, invalid_limit, invalid_cursor, or cursor_outdated (a source was added; start again from the first page).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          headers:
+            X-Trace-Id:
+              $ref: "#/components/headers/TraceID"
+          description: |
+            sources_unavailable; no source answered and the page can still be helped (a retry may work, or
+            nothing has been shown yet). When every remaining source has failed permanently on a later page,
+            the list ends with a 200 instead: no documents, the sources unavailable, next_cursor null.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          headers:
+            X-Trace-Id:
+              $ref: "#/components/headers/TraceID"
+          description: internal_error; anything unexpected, with a fixed message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /healthz:
+    get:
+      summary: Liveness
+      operationId: healthz
+      responses:
+        "200":
+          description: The process is up.
+  /readyz:
+    get:
+      summary: Readiness
+      operationId: readyz
+      responses:
+        "200":
+          description: Started and not shutting down.
+        "503":
+          description: Shutting down.
+components:
+  headers:
+    TraceID:
+      description: The request's W3C trace ID (32 lower-case hex characters), on every traced response. Quote it when reporting a failure; it names the trace and the log lines in Grafana. Exposed to browsers through CORS.
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{32}$"
+        example: 4bf92f3577b34da6a3ce929d0e0e4736
+  schemas:
+    DocumentPage:
+      type: object
+      required: [vin, documents, next_cursor, sources]
+      properties:
+        vin:
+          type: string
+          example: 1M8GDM9AXKP042788
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Opaque token for the next page; null on the last page.
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+    Document:
+      type: object
+      required: [type, title, issued_at, sources]
+      properties:
+        type:
+          type: string
+          description: Canonical document type, e.g. repair_order; other when unknown.
+          example: repair_order
+        title:
+          type: string
+        summary:
+          type: string
+          description: Only when the source provides one.
+        issued_at:
+          type: string
+          format: date-time
+        sources:
+          type: array
+          description: One entry in v1; a list so planned de-duplication can add more.
+          items:
+            $ref: "#/components/schemas/SourceRef"
+    SourceRef:
+      type: object
+      required: [source, id, url]
+      properties:
+        source:
+          type: string
+          example: service
+        id:
+          type: string
+          description: Prefixed with the source name.
+          example: service:9001
+        url:
+          type: string
+          format: uri
+          description: Opens the file in the source system.
+    SourceStatus:
+      type: object
+      required: [source, status]
+      properties:
+        source:
+          type: string
+        status:
+          type: string
+          enum: [ok, timeout, error, done, unavailable]
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+        sources:
+          type: array
+          description: Set only for sources_unavailable.
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [invalid_vin, invalid_limit, invalid_cursor, cursor_outdated, sources_unavailable, not_found, internal_error]
+        message:
+          type: string

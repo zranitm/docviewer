@@ -1,0 +1,10 @@
+# Grafana dashboard provider: loads the docviewer dashboard mounted next to
+# otel-lgtm's own.
+apiVersion: 1
+providers:
+  - name: docviewer
+    folder: docviewer
+    type: file
+    disableDeletion: false
+    options:
+      path: /otel-lgtm/grafana-dashboard-docviewer.json

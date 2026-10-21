@@ -1,0 +1,32 @@
+# configs/config.yaml: committed defaults for local runs and docker-compose.
+# Any key can be overridden as DOCVIEWER_<KEY_PATH>, e.g. DOCVIEWER_SERVER_ADDR.
+# Nothing here is secret. A value that ever is would come from the environment
+# or from config.local.yaml, which is git-ignored.
+
+server:
+  addr: ":8080"
+  cors_origins: []          # empty: no browser origin may call the API
+  shutdown_grace: 10s
+
+sources:
+  request_timeout: 3s       # the whole fan-out (PRD A-07)
+  max_body_bytes: 1048576   # 1 MB; a larger response is a permanent failure
+  upstreams:                # one entry per source; each name needs an adapter
+    sales:
+      base_url: http://mock-sales:8081
+      timeout: 2s
+    service:
+      base_url: http://mock-service:8082
+      timeout: 2s
+
+resilience:
+  max_retries: 1
+  min_budget: 500ms
+  max_jitter: 100ms
+  trip_after: 5
+  cooldown: 30s
+
+telemetry:
+  log_level: info
+  redact:
+    enabled: true

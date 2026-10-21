@@ -1,0 +1,44 @@
+{
+  "vehicleVin": "1M8GDM9AXKP042788",
+  "hasMore": false,
+  "documents": [
+    {
+      "docId": "S-1005",
+      "docType": "REGISTRATION",
+      "title": "Vehicle registration",
+      "createdDate": "2024-03-10",
+      "fileUrl": "http://localhost:8081/files/S-1005.pdf"
+    },
+    {
+      "docId": "S-1004",
+      "docType": "SALES_INVOICE",
+      "title": "Sales invoice",
+      "createdDate": "2024-03-05",
+      "fileUrl": "http://localhost:8081/files/S-1004.pdf",
+      "notes": "Paid in full",
+      "fileSha256": "3b7c1f0a9d2e4c6b8a0f1e2d3c4b5a69788796a5b4c3d2e1f0a9b8c7d6e5f4a3"
+    },
+    {
+      "docId": "S-1003",
+      "docType": "FINANCE_CONTRACT",
+      "title": "36-month finance plan",
+      "createdDate": "2024-03-02",
+      "fileUrl": "http://localhost:8081/files/S-1003.pdf"
+    },
+    {
+      "docId": "S-1002",
+      "docType": "PRE_DELIVERY_INSPECTION",
+      "title": "PDI checklist, signed",
+      "createdDate": "2024-03-02",
+      "fileUrl": "http://localhost:8081/files/S-1002.pdf",
+      "fileSha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+    },
+    {
+      "docId": "S-1001",
+      "docType": "PURCHASE_AGREEMENT",
+      "title": "Purchase agreement",
+      "createdDate": "2024-03-02",
+      "fileUrl": "http://localhost:8081/files/S-1001.pdf"
+    }
+  ]
+}
